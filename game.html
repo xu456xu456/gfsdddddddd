@@ -2,40 +2,28 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <title>Flappy Mini · buildyourside</title>
 <style>
-  html,body{margin:0;height:100%;background:#0d1117;color:#e6edf3;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial;}
+  html,body{margin:0;height:100%;background:#0d1117;color:#e6edf3;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial;
+    touch-action:none; overscroll-behavior:none; -webkit-user-select:none; user-select:none;}
   .wrap{display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px}
-  #c{background:#121826;border:2px solid #222a3a;border-radius:12px;touch-action:manipulation;}
+  #c{background:#121826;border:2px solid #222a3a;border-radius:12px;touch-action:none;}
   .hud{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center;position:relative;z-index:3}
   .btn{cursor:pointer;border:1px solid #2a3245;border-radius:10px;padding:6px 10px;background:#141a26}
   .btn:active{transform:translateY(1px)}
   .score{font-weight:700}
   a{color:#8ab4f8;text-decoration:none}
-
-  /* 全屏容器当“框”使用 */
-  #stage{position:relative}
-  #stage:fullscreen{
-    background:#0b0f1a;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;
-    padding:10px;
-  }
-  #stage:fullscreen #c{
-    box-shadow:0 0 0 2px #2a3245, 0 10px 40px rgba(0,0,0,.5);
-    border-radius:14px;
-  }
 </style>
 </head>
 <body>
-<div class="wrap" id="stage">
+<div class="wrap">
   <div class="hud">
     <span class="score">Score: <span id="score">0</span></span>
     <span>Best: <span id="best">0</span></span>
     <button id="start" class="btn">▶︎ Start</button>
     <button id="pause" class="btn">⏸ Pause</button>
     <button id="restart" class="btn">↺ Restart</button>
-    <button id="fullscreen" class="btn">⛶ Fullscreen</button>
   </div>
   <canvas id="c" width="420" height="680" aria-label="Flappy Mini"></canvas>
 </div>
@@ -43,35 +31,39 @@
 <script>
 (function(){
   const cvs = document.getElementById('c');
-  const ctx = cvs.getContext('2d');
+  const ctx = cvs.getContext('2d', { alpha: false });
   const $score = document.getElementById('score');
   const $best = document.getElementById('best');
   const $start = document.getElementById('start');
   const $pause = document.getElementById('pause');
   const $restart = document.getElementById('restart');
-  const $fsBtn = document.getElementById('fullscreen');
-  const stage = document.getElementById('stage');
   const BEST_KEY = 'flappy_best_v1';
 
-  // 响应式：根据视口或全屏状态缩放到合适尺寸
+  // ==== 移动端：彻底禁止双击/手势放大 ====
+  // 1) 拦截 iOS 的 pinch 手势
+  ['gesturestart','gesturechange','gestureend'].forEach(ev=>{
+    document.addEventListener(ev, e=>e.preventDefault(), {passive:false});
+  });
+  // 2) 拦截双击（两次 touchend < 300ms）
+  let lastTouchEnd = 0;
+  document.addEventListener('touchend', function(e){
+    const now = Date.now();
+    if (now - lastTouchEnd <= 300) {
+      e.preventDefault();
+    }
+    lastTouchEnd = now;
+  }, {passive:false, capture:true});
+  // 3) 禁止双击放大触发的 dblclick
+  document.addEventListener('dblclick', e=>e.preventDefault(), {passive:false, capture:true});
+
+  // 响应式：小屏自动缩放到窗口宽度
   function fitCanvas(){
-    const inFS = document.fullscreenElement === stage;
-    const vw = inFS ? screen.width  : window.innerWidth;
-    const vh = inFS ? screen.height : window.innerHeight;
-    // 既考虑宽度也考虑高度，取不溢出的最小缩放
-    const scaleW = Math.min(480, vw - 20) / cvs.width;
-    const scaleH = (vh - 20) / cvs.height;
-    const scale = Math.max(0.5, Math.min(scaleW, scaleH)); // 给个下限，别太小
+    const maxW = Math.min(480, window.innerWidth - 20);
+    const scale = Math.max(0.5, maxW / cvs.width);
     cvs.style.width = (cvs.width * scale) + 'px';
     cvs.style.height= (cvs.height* scale) + 'px';
   }
-  window.addEventListener('resize', fitCanvas);
-  window.addEventListener('orientationchange', fitCanvas);
-  document.addEventListener('fullscreenchange', ()=>{
-    $fsBtn.textContent = (document.fullscreenElement === stage) ? '⤢ Exit' : '⛶ Fullscreen';
-    fitCanvas();
-  });
-  fitCanvas();
+  window.addEventListener('resize', fitCanvas, {passive:true}); fitCanvas();
 
   // 游戏参数
   const W = cvs.width, H = cvs.height;
@@ -82,7 +74,7 @@
   // —— 难度：前 2 根超宽；第 3 根起变窄，10 根内收敛到常规难度 —— 
   const PIPE_GAP_MIN = 150, PIPE_GAP_MAX = 190; // 常规难度范围
   const GAP_START_MIN = 260, GAP_START_MAX = 300; // 开局更宽
-  const EASY_COUNT = 3;     // 前 2 根特别宽
+  const EASY_COUNT = 2;     // 前 2 根特别宽
   const RAMP_COUNT = 10;    // 接下来 10 根内线性收窄
   const PIPE_W = 70;
   const PIPE_SPEED = 160;      // px/s
@@ -97,14 +89,14 @@
 
   // 里程碑文案
   const MILESTONES = new Map([
-    [10, '上班摸鱼的人手感来了 ！'],
-    [20, '继续保持 冲冲冲！'],
-    [30, '神仙操作！老板要来了！'],
+    [10, '开局即高能，手感来了！'],
+    [20, '节奏稳得一匹，继续保持！'],
+    [30, '神仙操作！冲击个人纪录！'],
     [40, '手到擒来，已入佳境！'],
     [50, '半百关口轻松越！'],
-    [60, '节奏拿捏！啦啦啦啦啦！'],
-    [70, '比我厉害多了！'],
-    [80, '飞得漂亮，这是最高等级了！']
+    [60, '节奏拿捏！丝滑走位！'],
+    [70, '高手下凡，稳定发挥！'],
+    [80, '飞得漂亮，封神在即！']
   ]);
 
   // 背景渐变
@@ -383,31 +375,21 @@
     birdV = JUMP_V;
   }
 
-  // 全屏开关
-  function toggleFS(){
-    if (document.fullscreenElement === stage){
-      document.exitFullscreen?.();
-    } else {
-      stage.requestFullscreen?.({ navigationUI: "hide" }).catch(()=>{ /* 忽略失败 */ });
-    }
-  }
-
   // 事件
   cvs.addEventListener('pointerdown', jump, {passive:true});
-  cvs.addEventListener('dblclick', (e)=>{ e.preventDefault(); toggleFS(); });
+  // 保险：部分老机型无 PointerEvents，用 touchstart 兜底
+  cvs.addEventListener('touchstart', (e)=>{ e.preventDefault(); jump(); }, {passive:false});
 
   window.addEventListener('keydown', (e)=>{
     if (e.code === 'Space') { e.preventDefault(); jump(); }
     if (e.key.toLowerCase() === 'p') togglePause();
     if (e.key.toLowerCase() === 'r') restartGame();
-    if (e.key.toLowerCase() === 'f') toggleFS(); // 额外：按 F 切换全屏
   });
 
   // 按钮事件
   $start.addEventListener('click', (e)=>{ e.preventDefault(); start(); });
   $pause.addEventListener('click', (e)=>{ e.preventDefault(); togglePause(); });
   $restart.addEventListener('click', (e)=>{ e.preventDefault(); restartGame(); });
-  $fsBtn.addEventListener('click', (e)=>{ e.preventDefault(); toggleFS(); });
 
   // 初始渲染
   reset(); draw();
