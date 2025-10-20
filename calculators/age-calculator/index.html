@@ -1,0 +1,175 @@
+<script>
+// 追加到 /assets/i18n-dict.js —— Age Calculator 的多语言文案
+// 确保 window.I18N_DICT、各语言对象和 .tool 存在
+(function(D){
+  function ensure(o,k){ return o[k]||(o[k]={}); }
+  D.ph = D.ph||{}; ensure(D.ph,'tool');
+  D.id = D.id||{}; ensure(D.id,'tool');
+  D.vi = D.vi||{}; ensure(D.vi,'tool');
+  D.bn = D.bn||{}; ensure(D.bn,'tool');
+  D.ng = D.ng||{}; ensure(D.ng,'tool');   // English (Nigeria)
+  D.sw = D.sw||{}; ensure(D.sw,'tool');
+  D.ar = D.ar||{}; ensure(D.ar,'tool');
+  D.zh = D.zh||{}; ensure(D.zh,'tool');   // 若你已写过 zh，可忽略或合并
+
+  // Tagalog (ph)
+  D.ph.tool['age-calculator'] = {
+    page:{ title:'Age Calculator · GoToolOnline', desc:'Eksaktong edad sa taon, buwan, at araw. May opsyonal na end date.' },
+    navBack:'← Bumalik sa Home',
+    title:'Age Calculator',
+    intro:'Kunin ang eksaktong edad mo sa taon, buwan, at araw — puwedeng mag-set ng end date para mas eksakto.',
+    labDob:'Petsa ng kapanganakan',
+    labEnd:'End date (opsyonal)',
+    btnCalc:'Kalkulahin ang Edad',
+    resultPlaceholder:'Lalabas dito ang resulta.',
+    relTitle:'Kaugnay na mga tool',
+    rel_1:'Pagkakaiba ng Petsa',
+    rel_2:'World Time (by Country)',
+    rel_3:'Unit Converter',
+    backTop:'Bumalik sa Itaas ↑'
+  };
+
+  // Bahasa Indonesia (id)
+  D.id.tool['age-calculator'] = {
+    page:{ title:'Kalkulator Usia · GoToolOnline', desc:'Umur tepat dalam tahun, bulan, hari. Dukungan tanggal akhir opsional.' },
+    navBack:'← Kembali ke Beranda',
+    title:'Kalkulator Usia',
+    intro:'Hitung umur tepat Anda (tahun, bulan, hari) — bisa atur tanggal akhir untuk hasil presisi.',
+    labDob:'Tanggal lahir',
+    labEnd:'Tanggal akhir (opsional)',
+    btnCalc:'Hitung Usia',
+    resultPlaceholder:'Hasil akan muncul di sini.',
+    relTitle:'Alat terkait',
+    rel_1:'Selisih Tanggal',
+    rel_2:'Waktu Dunia (per Negara)',
+    rel_3:'Konverter Satuan',
+    backTop:'Kembali ke Atas ↑'
+  };
+
+  // Vietnamese (vi)
+  D.vi.tool['age-calculator'] = {
+    page:{ title:'Máy tính tuổi · GoToolOnline', desc:'Tuổi chính xác theo năm, tháng, ngày. Hỗ trợ ngày kết thúc tùy chọn.' },
+    navBack:'← Về trang chủ',
+    title:'Máy tính tuổi',
+    intro:'Tính chính xác tuổi của bạn (năm, tháng, ngày) — có thể đặt ngày kết thúc để chính xác hơn.',
+    labDob:'Ngày sinh',
+    labEnd:'Ngày kết thúc (tuỳ chọn)',
+    btnCalc:'Tính tuổi',
+    resultPlaceholder:'Kết quả sẽ hiển thị tại đây.',
+    relTitle:'Công cụ liên quan',
+    rel_1:'Khoảng cách ngày',
+    rel_2:'Giờ thế giới (theo quốc gia)',
+    rel_3:'Chuyển đổi đơn vị',
+    backTop:'Lên đầu trang ↑'
+  };
+
+  // Bengali (bn)
+  D.bn.tool['age-calculator'] = {
+    page:{ title:'বয়স ক্যালকুলেটর · GoToolOnline', desc:'বছর, মাস, দিনে সঠিক বয়স। ঐচ্ছিক শেষ তারিখ সমর্থিত।' },
+    navBack:'← হোমে ফিরে যান',
+    title:'বয়স ক্যালকুলেটর',
+    intro:'আপনার বয়স সঠিকভাবে হিসাব করুন (বছর/মাস/দিন) — আরও নির্ভুলতার জন্য শেষ তারিখ সেট করতে পারেন।',
+    labDob:'জন্মতারিখ',
+    labEnd:'শেষ তারিখ (ঐচ্ছিক)',
+    btnCalc:'বয়স গণনা করুন',
+    resultPlaceholder:'ফলাফল এখানে দেখাবে।',
+    relTitle:'সম্পর্কিত টুলস',
+    rel_1:'তারিখ পার্থক্য',
+    rel_2:'বিশ্ব সময় (দেশভিত্তিক)',
+    rel_3:'ইউনিট কনভার্টার',
+    backTop:'উপরে ফিরে যান ↑'
+  };
+
+  // English (Nigeria) (ng) — 仍然英语，但可用更贴近本地的文案
+  D.ng.tool['age-calculator'] = {
+    page:{ title:'Age Calculator · GoToolOnline', desc:'Exact age in years, months, and days. Optional end date.' },
+    navBack:'← Back to Home',
+    title:'Age Calculator',
+    intro:'Get your exact age in years, months, and days — set an end date if you like.',
+    labDob:'Date of birth',
+    labEnd:'End date (optional)',
+    btnCalc:'Calculate Age',
+    resultPlaceholder:'Result will appear here.',
+    relTitle:'Related tools',
+    rel_1:'Date Difference',
+    rel_2:'World Time (by Country)',
+    rel_3:'Unit Converter',
+    backTop:'Back to Top ↑'
+  };
+
+  // Swahili (sw)
+  D.sw.tool['age-calculator'] = {
+    page:{ title:'Kikokotoo cha Umri · GoToolOnline', desc:'Umri sahihi kwa miaka, miezi, na siku. Tarehe ya mwisho hiari.' },
+    navBack:'← Rudi Nyumbani',
+    title:'Kikokotoo cha Umri',
+    intro:'Hesabu umri wako kwa usahihi (miaka, miezi, siku) — unaweza kuweka tarehe ya mwisho kwa usahihi zaidi.',
+    labDob:'Tarehe ya kuzaliwa',
+    labEnd:'Tarehe ya mwisho (hiari)',
+    btnCalc:'Kokotoa Umri',
+    resultPlaceholder:'Matokeo yataonekana hapa.',
+    relTitle:'Zana zinazohusiana',
+    rel_1:'Tofauti ya Tarehe',
+    rel_2:'Saa za Dunia (kwa Nchi)',
+    rel_3:'Kigeuzi cha Vitengo',
+    backTop:'Rudi Juu ↑'
+  };
+
+  // Arabic (ar) — 右到左被 i18n-core 自动处理 dir="rtl"
+  D.ar.tool['age-calculator'] = {
+    page:{ title:'حاسبة العمر · GoToolOnline', desc:'العمر بدقة بالسنوات والأشهر والأيام. يدعم تاريخ نهاية اختياري.' },
+    navBack:'← الرجوع إلى الرئيسية',
+    title:'حاسبة العمر',
+    intro:'احسب عمرك بدقة (سنوات/أشهر/أيام) — يمكنك تحديد تاريخ نهاية لمزيد من الدقة.',
+    labDob:'تاريخ الميلاد',
+    labEnd:'تاريخ النهاية (اختياري)',
+    btnCalc:'احسب العمر',
+    resultPlaceholder:'ستظهر النتيجة هنا.',
+    relTitle:'أدوات ذات صلة',
+    rel_1:'فارق التاريخ',
+    rel_2:'الوقت حول العالم (حسب البلد)',
+    rel_3:'محوّل الوحدات',
+    backTop:'العودة للأعلى ↑'
+  };
+
+  // 中文（若你还没写或想覆盖）
+  D.zh.tool['age-calculator'] = D.zh.tool['age-calculator'] || {
+    page:{ title:'年龄计算器 · GoToolOnline', desc:'精确到 年/月/日；支持自定义结束日期。' },
+    navBack:'← 返回首页',
+    title:'年龄计算器',
+    intro:'精确计算你的年龄（年/月/日），可选自定义“结束日期”。',
+    labDob:'出生日期',
+    labEnd:'结束日期（可选）',
+    btnCalc:'计算年龄',
+    resultPlaceholder:'结果会显示在这里。',
+    relTitle:'相关工具',
+    rel_1:'日期差计算',
+    rel_2:'世界时间（按国家）',
+    rel_3:'单位换算',
+    backTop:'返回顶部 ↑'
+  };
+})(window.I18N_DICT = window.I18N_DICT || {});
+</script>
+
+<script>
+(function(){
+  // Compute site root by removing the last two segments (category/tool)
+  var path = location.pathname.replace(/\/+$/,''); // strip trailing slashes
+  var parts = path.split('/');
+  if (parts.length >= 3) parts = parts.slice(0, parts.length - 2);
+  else parts = ['']; // already at root
+  var home = parts.join('/') + '/';
+
+  // preserve ?lang if present
+  var cur = new URL(location.href);
+  var lang = cur.searchParams.get('lang');
+  if (lang) {
+    var u = new URL(home, location.origin);
+    u.searchParams.set('lang', lang);
+    home = u.pathname + u.search + u.hash;
+  }
+
+  document.querySelectorAll('a[data-home]').forEach(function(a){
+    a.setAttribute('href', home);
+  });
+})();
+</script>
