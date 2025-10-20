@@ -80,6 +80,29 @@
     .egg-banner .inner{max-width:1200px;margin:0 auto;padding:calc(10px + env(safe-area-inset-top)) 56px 12px 16px;font-weight:800;letter-spacing:.3px;position:relative;text-align:center;font-size:clamp(16px,2.8vw,28px);line-height:1.35}
     .egg-banner .close{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:transparent;border:none;color:#fff;font-size:28px;cursor:pointer;line-height:1;padding:6px;pointer-events:auto}
     @media (max-width:520px){.egg-banner .inner{padding:calc(8px + env(safe-area-inset-top)) 52px 10px 10px}}
+
+    /* === Game modal (内嵌弹窗) === */
+    #game-modal{
+      position:fixed; inset:0; z-index:5000; /* 语言面板 3200，蛋 2000，这里最高 */
+      display:none; align-items:center; justify-content:center;
+      background:rgba(0,0,0,.6);
+      padding:max(16px, env(safe-area-inset-top)) 16px 16px;
+    }
+    #game-modal.open{ display:flex; }
+    #game-box{
+      background:var(--card); border:1px solid #1a2843; border-radius:16px;
+      width:min(1000px,92vw); height:min(80vh,92vh);
+      display:flex; flex-direction:column; overflow:hidden;
+      box-shadow:0 30px 80px rgba(0,0,0,.6);
+    }
+    #game-head{
+      display:flex; align-items:center; justify-content:space-between;
+      padding:10px 12px; background:linear-gradient(180deg,#0b1732,#0b1d3f);
+      border-bottom:1px solid #20355e; color:#cfe5ff
+    }
+    #game-head strong{ font-weight:800 }
+    #game-close{ background:transparent; border:none; color:#fff; font-size:22px; cursor:pointer; padding:6px 10px; line-height:1 }
+    #game-frame{ flex:1; width:100%; border:0; background:#000 }
   </style>
 </head>
 <body>
@@ -195,6 +218,18 @@
 <details><summary id="q4">Can I bookmark tools I use often?</summary><p id="a4">Absolutely. Bookmark any tool page to open it instantly next time.</p></details>
 </section>
 </main>
+
+<!-- === Game Modal (弹窗内嵌游戏) === -->
+<div id="game-modal" role="dialog" aria-modal="true" aria-labelledby="game-title" aria-hidden="true">
+  <div id="game-box">
+    <div id="game-head">
+      <strong id="game-title">🎮 Mini Game</strong>
+      <button id="game-close" aria-label="Close">×</button>
+    </div>
+    <iframe id="game-frame" title="Game" loading="lazy"></iframe>
+  </div>
+</div>
+
 <footer>
     © <span id="y"></span> GoToolOnline.com · <span id="t-foot">Free online tools for everyone</span> ·
     <a href="about/" id="f-about" style="color:#8cd1ff">About</a> ·
@@ -246,11 +281,11 @@
       const lang = pickLang();
 
       if (lang==='ar') document.documentElement.dir='rtl'; else document.documentElement.dir='ltr';
-     document.documentElement.lang =
-  (lang==='ph' ? 'fil' :
-   lang==='zh' ? 'zh-CN' :
-   lang==='ng' ? 'en-NG' :
-   lang);
+      document.documentElement.lang =
+        (lang==='ph' ? 'fil' :
+         lang==='zh' ? 'zh-CN' :
+         lang==='ng' ? 'en-NG' :
+         lang);
 
       // ===== 语言面板 =====
       const bar = document.getElementById('langbar');
@@ -498,7 +533,7 @@
           url:["🔗 Encoder/Decoder URL","Encode/Decode URL"],
           json:["🧩 Pemformat/Pemeriksa JSON","Validasi & rapikan"],
           htmlmin:["🧹 Peringkas HTML (Dasar)","Ringkas whitespace"],
-          b64:["📦 Encoder/Decoder Base64","Teks ⇄ Base64"],
+          b64:["📦 Base64 Encoder/Decoder","Teks ⇄ Base64"],
           hash:["🔒 Pembuat Hash SHA-256","WebCrypto hashing"],
           jwt:["🔑 Decoder JWT","Decode lokal"]
         },
@@ -724,7 +759,7 @@
           ip:["🌐 البحث عن IP","عنوان IP العام"],
           rng:["🎲 مولد الأرقام العشوائية","يستخدم Secure RNG إن توفر"],
           qr:["🔳 مولد رمز QR","أنشئ رموز QR"],
-          color:["🎨 منتقي الألوان","انسخ HEX"],
+          color:["🎨 منتقي الألوان","نسخ HEX"],
           scan:["📷 قارئ رمز QR","كاميرا أو صورة"],
           pal:["🎨 لوحة من صورة","استخراج الألوان"],
           lotto:["🎟️ مولد أرقام يانصيب","لأغراض ترفيهية فقط"],
@@ -909,13 +944,72 @@
       });
       (function(){ const hash=(location.hash||'').replace('#',''); const chip=document.querySelector(`#chips .chip[data-cat="${hash}"]`); if (chip){ document.querySelectorAll('#chips .chip').forEach(x=>x.classList.remove('active')); chip.classList.add('active'); activeCat=hash; } applyFilter(); })();
 
+      /* === 游戏弹窗函数 === */
+      function openGameModal(lang){
+        try { if (typeof hideEgg === 'function') hideEgg(); } catch(e){}
+        try { if (typeof openLang === 'function') openLang(false); } catch(e){}
+        const modal = document.getElementById('game-modal');
+        const frame = document.getElementById('game-frame');
+        const title = document.getElementById('game-title');
+        if (!modal || !frame) return;
+
+        // 构造同源 URL，并保留 ?lang
+        const cur = new URL(location.href);
+        const url = new URL('game.html', cur);
+        if (lang) url.searchParams.set('lang', lang);
+
+        // 标题根据语言简单切换
+        if (title) title.textContent = (lang === 'zh' ? '🎮 摸一会鱼' : '🎮 Mini Game');
+
+        frame.src = url.toString();
+        modal.classList.add('open');
+        modal.removeAttribute('aria-hidden');
+        document.body.style.overflow = 'hidden';
+
+        const closer = document.getElementById('game-close');
+        if (closer) closer.focus();
+
+        // 事件只绑一次
+        if (!modal._bound){
+          modal._bound = true;
+          // 点遮罩关闭
+          modal.addEventListener('click', (e)=>{ if(e.target === modal) closeGameModal(); });
+          // 关闭按钮
+          const btn = document.getElementById('game-close');
+          if (btn) btn.addEventListener('click', closeGameModal);
+          // ESC 关闭
+          document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape' && modal.classList.contains('open')) closeGameModal(); });
+        }
+      }
+      function closeGameModal(){
+        const modal = document.getElementById('game-modal');
+        const frame = document.getElementById('game-frame');
+        if (modal){ modal.classList.remove('open'); modal.setAttribute('aria-hidden','true'); }
+        if (frame){ frame.src = 'about:blank'; } // 停止音频/动画
+        document.body.style.overflow = '';
+      }
+
       // Eggs
       const EGGS = {'林小小':'欢迎林大小姐莅临指导工作','戴迎秀':'欢迎戴大小姐莅临指导工作','彭冬梅':'欢迎彭大小姐莅临指导工作','徐玉芳':'欢迎最好的老姐莅临指导工作'};
       let eggTimer = null;
       const eggEl = document.getElementById('egg-banner');
       function hideEgg(){ if(!eggEl) return; eggEl.style.display='none'; eggEl.innerHTML=''; if(eggTimer){ clearTimeout(eggTimer); eggTimer=null; } }
       function showEgg(msg){ if(!eggEl) return; eggEl.innerHTML = '<div class="inner">'+ msg +'<button class="close" aria-label="Close">×</button></div>'; eggEl.style.display='block'; const btn=eggEl.querySelector('.close'); if(btn) btn.onclick = hideEgg; if(eggTimer){ clearTimeout(eggTimer);} eggTimer = setTimeout(hideEgg, 8000); }
-      function triggerEgg(q){ if(!q) return; const msg = EGGS[q.trim()]; if(msg){ showEgg(msg); } }
+
+      // 只保留一个搜索彩蛋：精准匹配“摸一会鱼” -> 打开内嵌游戏
+      function triggerEgg(q){
+        if(!q) return;
+        const raw = q.trim();
+        if (raw === '摸一会鱼'){
+          const cur = new URL(location.href);
+          const lang = cur.searchParams.get('lang'); // 保留站点语言
+          openGameModal(lang);
+          return; // 不触发横幅
+        }
+        // 原有 4 个姓名彩蛋横幅保留（精确匹配）
+        const msg = EGGS[raw];
+        if (msg) { showEgg(msg); }
+      }
     }); // init
   })();
   </script>
