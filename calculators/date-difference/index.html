@@ -126,8 +126,16 @@
   const LANGS = ['en','zh','ph','id','vi','bn','ng','sw','ar'];
   const NAMES = {en:'English', zh:'简体中文', ph:'Tagalog', id:'Bahasa Indonesia', vi:'Tiếng Việt', bn:'বাংলা', ng:'English (NG)', sw:'Kiswahili', ar:'العربية'};
 
-  // map for input[type="date"] locale
-  const INPUT_LOCALE = { en:'en-US', zh:'zh-CN', ph:'tl-PH', id:'id-ID', vi:'vi-VN', bn:'bn', ng:'en-NG', sw:'sw', ar:'ar' };
+  // locale for <input type="date"> (bn/ar 强制拉丁数字)
+  const INPUT_LOCALE = {
+    en:'en-US', zh:'zh-CN', ph:'tl-PH', id:'id-ID', vi:'vi-VN',
+    bn:'bn-BD-u-nu-latn', ng:'en-NG', sw:'sw', ar:'ar-u-nu-latn'
+  };
+  // placeholders（部分浏览器不显示，但作为兜底）
+  const DATE_PH = {
+    en:'YYYY/MM/DD', zh:'年 / 月 / 日', ph:'DD/MM/YYYY', id:'DD/MM/YYYY',
+    vi:'ngày/tháng/năm', bn:'DD/MM/YYYY', ng:'DD/MM/YYYY', sw:'YYYY-MM-DD', ar:'يوم/شهر/سنة'
+  };
 
   function getCookie(name){ return ('; '+document.cookie).split('; '+name+'=').pop().split(';')[0] || ''; }
   function setCookie(name,val){ document.cookie = name+'='+val+';path=/;max-age=31536000'; }
@@ -295,7 +303,6 @@
     });
     if (get(D,'meta.title')) document.title = get(D,'meta.title');
     const desc = document.querySelector('meta[name="description"]'); if (desc && get(D,'meta.desc')) desc.setAttribute('content', get(D,'meta.desc'));
-    // lang button label
     const btn = document.getElementById('langBtn'); if (btn){ btn.textContent = '🌐 ' + (get(D,'ui.lang')||'Language'); }
   }
 
@@ -311,8 +318,15 @@
 
   function applyDateInputLocale(selected){
     const loc = INPUT_LOCALE[selected] || 'en-US';
+    const ph  = DATE_PH[selected] || DATE_PH.en;
     document.querySelectorAll('input[type="date"]').forEach(function(el){
-      el.setAttribute('lang', loc);
+      el.setAttribute('lang', loc);                 // 原生日历语言/格式
+      el.setAttribute('placeholder', ph);          // 兜底占位
+      // 若之前写死了“年/月/日”，替换掉
+      if (/年|月|日/.test(el.getAttribute('placeholder')||'')) el.setAttribute('placeholder', ph);
+      // 统一输入体验
+      el.setAttribute('inputmode','numeric');
+      el.setAttribute('autocomplete','off');
       if (selected === 'ar') el.setAttribute('dir','rtl'); else el.removeAttribute('dir');
     });
   }
@@ -363,7 +377,7 @@
     if (months < 0){ years--; months += 12; }
     return {years, months, days};
   }
-  function num(n){ return String(n); } // keep Western digits
+  function num(n){ return String(n); } // 保持西方数字
 
   function t(path, fallback){
     var dict = (window.__DICT__||{}); try{ const p=path.split('.'); let o=dict; for(const k of p){ o=o[k]; if(o==null) return fallback||''; } return o; }catch(e){ return fallback||''; }
