@@ -40,20 +40,15 @@
   const BEST_KEY = 'flappy_best_v1';
 
   // ==== 移动端：彻底禁止双击/手势放大 ====
-  // 1) 拦截 iOS 的 pinch 手势
   ['gesturestart','gesturechange','gestureend'].forEach(ev=>{
     document.addEventListener(ev, e=>e.preventDefault(), {passive:false});
   });
-  // 2) 拦截双击（两次 touchend < 300ms）
   let lastTouchEnd = 0;
   document.addEventListener('touchend', function(e){
     const now = Date.now();
-    if (now - lastTouchEnd <= 300) {
-      e.preventDefault();
-    }
+    if (now - lastTouchEnd <= 300) e.preventDefault();
     lastTouchEnd = now;
   }, {passive:false, capture:true});
-  // 3) 禁止双击放大触发的 dblclick
   document.addEventListener('dblclick', e=>e.preventDefault(), {passive:false, capture:true});
 
   // 响应式：小屏自动缩放到窗口宽度
@@ -84,19 +79,18 @@
   let birdY, birdV, score, best, running=false, paused=false, gameOver=false;
   let lastTS=0, accInterval=0, pipeCount=0;
   let mMsg='', mTTL=0;          // 里程碑提示
-  let milestone99Shown = false; // 99+ 只提示一次
   const pipes = []; // {x, topH, gap, passed}
 
-  // 里程碑文案
+  // 里程碑文案（按你给的）
   const MILESTONES = new Map([
-    [10, '开局即高能，手感来了！'],
-    [20, '节奏稳得一匹，继续保持！'],
-    [30, '神仙操作！冲击个人纪录！'],
-    [40, '手到擒来，已入佳境！'],
-    [50, '半百关口轻松越！'],
+    [10, '上班摸鱼的人手感来了！'],
+    [20, '冲冲冲冲冲，继续保持！'],
+    [30, '老板在你后面！'],
+    [40, '已入佳境！'],
+    [50, '你快下班了 ！'],
     [60, '节奏拿捏！丝滑走位！'],
     [70, '高手下凡，稳定发挥！'],
-    [80, '飞得漂亮，封神在即！']
+    [80, '飞得漂亮，这是最高等级了！']
   ]);
 
   // 背景渐变
@@ -115,7 +109,6 @@
     pipeCount = 0;
     accInterval = 0;
     lastTS = 0;
-    milestone99Shown = false;
     mMsg=''; mTTL=0;
     $score.textContent = score;
     best = parseInt(localStorage.getItem(BEST_KEY)||'0',10);
@@ -184,10 +177,6 @@
         // 触发里程碑提示
         if (MILESTONES.has(score)) {
           flashMsg(MILESTONES.get(score));
-        }
-        if (!milestone99Shown && score >= 99){
-          flashMsg('突破极限！已进入传说分段！');
-          milestone99Shown = true;
         }
       }
     }
@@ -274,7 +263,6 @@
     ctx.strokeStyle = '#2a364a';
     ctx.lineWidth = 3;
     ctx.strokeRect(x+0.5,y+0.5,w-1,h-1);
-    // 边缘高光
     ctx.globalAlpha = 0.12;
     ctx.fillStyle = '#9fb5ff';
     ctx.fillRect(x+4,y+4,w-8,6);
@@ -288,13 +276,11 @@
     ctx.fill();
     ctx.strokeStyle = '#e0a800';
     ctx.stroke();
-    // 翅膀
     const flap = Math.sin(perf())*4;
     ctx.beginPath();
     ctx.ellipse(x-6, y+flap, 10,6, 0, 0, Math.PI*2);
     ctx.fillStyle = '#f9c74f';
     ctx.fill();
-    // 眼睛
     ctx.beginPath();
     ctx.arc(x+6, y-6, 4, 0, Math.PI*2);
     ctx.fillStyle = '#fff';
@@ -303,7 +289,6 @@
     ctx.arc(x+6, y-6, 2, 0, Math.PI*2);
     ctx.fillStyle = '#000';
     ctx.fill();
-    // 嘴
     ctx.beginPath();
     ctx.moveTo(x+14, y-2);
     ctx.lineTo(x+22, y+1);
@@ -327,7 +312,7 @@
     ctx.fillText(text, (W - ctx.measureText(text).width)/2, y);
   }
   function toast(text){
-    const alpha = Math.max(0, Math.min(1, mTTL / 2200)); // 逐渐消失
+    const alpha = Math.max(0, Math.min(1, mTTL / 2200));
     ctx.font = 'bold 22px system-ui,Arial';
     const tw = ctx.measureText(text).width + 24;
     const x = (W - tw)/2, y = 60;
@@ -370,16 +355,14 @@
   }
   function jump(){
     if (!running){ start(); return; }
-    if (gameOver){ restartGame(); return; } // Game Over 时点画布也直接重开
+    if (gameOver){ restartGame(); return; }
     if (paused){ paused=false; }
     birdV = JUMP_V;
   }
 
   // 事件
   cvs.addEventListener('pointerdown', jump, {passive:true});
-  // 保险：部分老机型无 PointerEvents，用 touchstart 兜底
   cvs.addEventListener('touchstart', (e)=>{ e.preventDefault(); jump(); }, {passive:false});
-
   window.addEventListener('keydown', (e)=>{
     if (e.code === 'Space') { e.preventDefault(); jump(); }
     if (e.key.toLowerCase() === 'p') togglePause();
