@@ -294,7 +294,7 @@
     // expose lang
     window.__PAGE_LANG__ = lang;
 
-    // === force <input type="date"> locale & keep Latin digits ===
+    // === force <input type="date"> locale & placeholders ===
     const INPUT_LOCALE = {
       en: 'en-US',
       zh: 'zh-CN',
@@ -306,11 +306,31 @@
       sw: 'sw',
       ar: 'ar-u-nu-latn'
     };
+    const DATE_PH = {
+      en: 'YYYY/MM/DD',
+      zh: '年 / 月 / 日',
+      ph: 'DD/MM/YYYY',
+      id: 'DD/MM/YYYY',
+      vi: 'ngày/tháng/năm',
+      bn: 'DD/MM/YYYY',
+      ng: 'DD/MM/YYYY',
+      sw: 'YYYY-MM-DD',
+      ar: 'يوم/شهر/سنة'
+    };
+
     (function applyDateInputLocale(selected){
       var locale = INPUT_LOCALE[selected] || 'en-US';
+      var ph = DATE_PH[selected] || DATE_PH.en;
       document.querySelectorAll('input[type="date"]').forEach(function(el){
-        el.setAttribute('lang', locale);
+        el.setAttribute('lang', locale);                 // native picker language
+        // placeholders are ignored by some browsers for type=date; still set as a fallback
+        el.setAttribute('placeholder', ph);
+        // strip old hard-coded Chinese placeholder if present
+        if (/年|月|日/.test(el.getAttribute('placeholder')||'')) el.setAttribute('placeholder', ph);
         if (selected === 'ar') el.setAttribute('dir','rtl'); else el.removeAttribute('dir');
+        // make sure IME doesn't force non-latin numbers for ar/bn
+        el.setAttribute('inputmode','numeric');
+        el.setAttribute('autocomplete','bday');
       });
     })(window.__PAGE_LANG__ || 'en');
   })();
