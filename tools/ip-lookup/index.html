@@ -1,18 +1,19 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>IPv4 查询 | GoToolOnline</title>
-<meta name="description" content="只显示 IPv4（点分十进制）的公网 IP，另附实验性内网 IP（192.168/10/172.*）探测。"/>
+<title>IPv4 Lookup | GoToolOnline</title>
+<meta name="description" content="Show your public IPv4 address (dotted decimal) and basic geolocation like country and city. Includes optional experimental local IP detection."/>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><text x='6' y='52' font-size='48'>🛠️</text></svg>"/>
 <style>
 :root{--bg:#0a0f1e;--card:#0f1830;--muted:#9fb0c3;--fg:#eaf3ff;--acc:#4fb3ff}
 *{box-sizing:border-box}
 body{margin:0;font:16px/1.6 system-ui,-apple-system,Segoe UI,Roboto,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--fg)}
-main,header,footer{max-width:880px;margin:0 auto;padding:0 18px}
+main,header,footer{max-width:920px;margin:0 auto;padding:0 18px}
 header{display:flex;gap:12px;align-items:center;margin:22px auto 8px}
 header .logo{display:flex;gap:10px;align-items:center;text-decoration:none;color:var(--fg);font-weight:800;font-size:22px}
+.lang{margin-left:auto;padding:10px 12px;background:#0f1a2f;border:1px solid #24365b;border-radius:10px;color:#eaf3ff;font-size:14px}
 .card{background:var(--card);border:1px solid #1a2843;border-radius:18px;padding:18px;margin:16px 0}
 h1{margin:6px 0 8px;font-size:28px}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
@@ -24,6 +25,8 @@ button:hover{filter:brightness(1.06)}
 .code{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,"Cascadia Mono","Segoe UI Mono",Consolas,"Liberation Mono",monospace}
 .copy{margin-left:auto;background:#0f1a2f;border:1px solid #24365b}
 .tip{margin-top:8px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:10px}
+.info{background:#0c1426;border:1px solid #24365b;border-radius:12px;padding:12px}
 footer{color:var(--muted);font-size:14px;margin:36px auto 28px}
 @media (max-width:720px){ .result{flex-direction:column;align-items:flex-start} .copy{margin-left:0} }
 </style>
@@ -31,24 +34,44 @@ footer{color:var(--muted);font-size:14px;margin:36px auto 28px}
 <body>
 <header>
   <a class="logo" href="./"><span>🛠️</span><strong>GoToolOnline</strong></a>
+  <select id="lang" class="lang" aria-label="Language">
+    <option value="en">English</option>
+    <option value="zh">简体中文</option>
+    <option value="ph">Tagalog</option>
+    <option value="id">Bahasa Indonesia</option>
+    <option value="vi">Tiếng Việt</option>
+    <option value="bn">বাংলা</option>
+    <option value="ng">English (NG)</option>
+    <option value="sw">Kiswahili</option>
+    <option value="ar">العربية</option>
+  </select>
 </header>
 <main>
   <section class="card">
-    <h1>IPv4 查询（只显示点分十进制）</h1>
+    <h1 id="h1">IPv4 Lookup (Dotted Decimal)</h1>
     <div class="row">
-      <button id="btnV4">获取我的 IPv4</button>
-      <button id="btnCopy" class="copy">复制</button>
-      <button id="btnLan" class="secondary">尝试获取内网 IPv4（实验）</button>
+      <button id="btnV4">Show My IPv4</button>
+      <button id="btnCopy" class="copy">Copy</button>
+      <button id="btnLan" class="secondary">Try Local IPv4 (Experimental)</button>
     </div>
     <div class="result">
-      <span><span>你的 IPv4：</span> <strong id="ip" class="code">—</strong></span>
-      <span class="small" id="copied" style="display:none">已复制！</span>
+      <span><span id="labelPublic">Your IPv4:</span> <strong id="ip" class="code">—</strong></span>
+      <span class="small" id="copied" style="display:none">Copied!</span>
     </div>
-    <p class="small tip" id="note">说明：这里显示的是公网 IPv4（点分十进制）。如果你的网络没有分配公网 IPv4，只会得到 IPv6 或失败。</p>
+
+    <div class="grid">
+      <div class="info"><strong id="locLabel">Location</strong><div class="small" id="loc">—</div></div>
+      <div class="info"><strong id="ispLabel">Network / ISP</strong><div class="small" id="isp">—</div></div>
+    </div>
+
+    <p class="small tip" id="note">
+      Note: This page shows your public IPv4 only. If your network doesn't provide a public IPv4, you'll see an error. Location is approximate.
+    </p>
+
     <div class="card" style="margin-top:14px">
-      <div class="small">内网 IP（如 192.168.x.x / 10.x.x.x / 172.16–31.x.x）受浏览器隐私保护，通常拿不到。下面按钮用 WebRTC 试探，成功率不保证。</div>
+      <div class="small" id="lanTip">Local/private IPv4 (e.g., 192.168.x.x / 10.x.x.x / 172.16–31.x.x) is protected by browsers. The button below uses WebRTC to attempt discovery; success isn't guaranteed.</div>
       <div class="result" style="margin-top:10px">
-        <span><span>内网 IPv4（实验）：</span> <strong id="lan" class="code">—</strong></span>
+        <span><span id="labelLan">Local IPv4 (Experimental):</span> <strong id="lan" class="code">—</strong></span>
       </div>
     </div>
   </section>
@@ -56,65 +79,139 @@ footer{color:var(--muted);font-size:14px;margin:36px auto 28px}
 <footer>© 2025 GoToolOnline.com</footer>
 
 <script>
-// 简单 IPv4 验证
-const IPV4_RE=/^(?:(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)\\.){3}(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)$/;
-const $=s=>document.querySelector(s);
+// --- i18n (9 languages) ---
+const I18N = {
+  en:{title:"IPv4 Lookup | GoToolOnline",desc:"Show your public IPv4 and basic geolocation (country, city).",h1:"IPv4 Lookup (Dotted Decimal)",btnV4:"Show My IPv4",btnCopy:"Copy",btnLan:"Try Local IPv4 (Experimental)",labelPublic:"Your IPv4:",labelLan:"Local IPv4 (Experimental):",copied:"Copied!",querying:"Checking…",noipv4:"Couldn't get public IPv4",lanTry:"Trying…",lanFail:"Not available (blocked by browser)",note:"This page shows public IPv4 only. If your network has no public IPv4, you may get an error. Location is approximate.",loc:"Location",isp:"Network / ISP",lanTip:"Local/private IPv4 (e.g., 192.168.x.x / 10.x.x.x / 172.16–31.x.x) is protected by browsers. The button below uses WebRTC to attempt discovery; success isn't guaranteed."},
+  zh:{title:"IPv4 查询 | GoToolOnline",desc:"显示你的公网 IPv4（点分十进制）及大致归属地（国家/城市）。",h1:"IPv4 查询（点分十进制）",btnV4:"获取我的 IPv4",btnCopy:"复制",btnLan:"尝试获取内网 IPv4（实验）",labelPublic:"你的 IPv4：",labelLan:"内网 IPv4（实验）：",copied:"已复制！",querying:"查询中…",noipv4:"未获取到公网 IPv4",lanTry:"尝试中…",lanFail:"未获取到（浏览器已屏蔽）",note:"本页仅显示公网 IPv4；若你的网络没有公网 IPv4，可能会失败。归属地仅供参考。",loc:"归属地",isp:"网络/运营商",lanTip:"内网 IP（如 192.168.x.x / 10.x.x.x / 172.16–31.x.x）受浏览器隐私保护。下面按钮用 WebRTC 试探，成功率不保证。"},
+  ph:{title:"IPv4 Lookup | GoToolOnline",desc:"Ipakita ang iyong public IPv4 at lokasyon (bansa, lungsod).",h1:"IPv4 Lookup (Dotted Decimal)",btnV4:"Ipakita ang Aking IPv4",btnCopy:"Kopyahin",btnLan:"Subukan ang Local IPv4 (Experimental)",labelPublic:"IP mo (IPv4):",labelLan:"Local IPv4 (Experimental):",copied:"Nakopya!",querying:"Sinusuri…",noipv4:"Hindi nakuha ang public IPv4",lanTry:"Sinusubukan…",lanFail:"Hindi makuha (hinarang ng browser)",note:"Public IPv4 lang ang ipinapakita. Kung walang public IPv4 ang network mo, puwedeng mag-error. Tantiyadong lokasyon lang.",loc:"Lokasyon",isp:"Network / ISP",lanTip:"Ang local/private IPv4 ay pinoprotektahan ng browser; WebRTC lang ang sinusubukan kaya hindi garantisado."},
+  id:{title:"Pencari IPv4 | GoToolOnline",desc:"Tampilkan IPv4 publik dan lokasi dasar (negara, kota).",h1:"Pencari IPv4 (Dotted Decimal)",btnV4:"Tampilkan IPv4 Saya",btnCopy:"Salin",btnLan:"Coba IPv4 Lokal (Eksperimental)",labelPublic:"IPv4 Anda:",labelLan:"IPv4 Lokal (Eksperimental):",copied:"Disalin!",querying:"Memeriksa…",noipv4:"Gagal mendapatkan IPv4 publik",lanTry:"Mencoba…",lanFail:"Tidak tersedia (diblokir browser)",note:"Halaman ini hanya menampilkan IPv4 publik. Jika jaringan Anda tidak memiliki IPv4 publik, bisa gagal. Lokasi bersifat perkiraan.",loc:"Lokasi",isp:"Jaringan / ISP",lanTip:"IPv4 lokal bersifat privat dan dilindungi browser; percobaan WebRTC tidak selalu berhasil."},
+  vi:{title:"Tra cứu IPv4 | GoToolOnline",desc:"Hiển thị IPv4 công cộng và vị trí (quốc gia, thành phố).",h1:"Tra cứu IPv4 (Dotted Decimal)",btnV4:"Hiện IPv4 của tôi",btnCopy:"Sao chép",btnLan:"Thử IPv4 nội bộ (thử nghiệm)",labelPublic:"IPv4 của bạn:",labelLan:"IPv4 nội bộ (thử nghiệm):",copied:"Đã sao chép!",querying:"Đang kiểm tra…",noipv4:"Không lấy được IPv4 công cộng",lanTry:"Đang thử…",lanFail:"Không thể lấy (trình duyệt chặn)",note:"Trang chỉ hiển thị IPv4 công cộng; nếu mạng không có IPv4 công cộng có thể lỗi. Vị trí chỉ ước lượng.",loc:"Vị trí",isp:"Mạng / ISP",lanTip:"IPv4 nội bộ được trình duyệt bảo vệ; kiểm tra bằng WebRTC nên không đảm bảo."},
+  bn:{title:"IPv4 অনুসন্ধান | GoToolOnline",desc:"আপনার পাবলিক IPv4 এবং অবস্থান (দেশ, শহর) দেখায়।",h1:"IPv4 অনুসন্ধান (Dotted Decimal)",btnV4:"আমার IPv4 দেখান",btnCopy:"কপি",btnLan:"লোকাল IPv4 চেষ্টা করুন (পরীক্ষামূলক)",labelPublic:"আপনার IPv4:",labelLan:"লোকাল IPv4 (পরীক্ষামূলক):",copied:"কপি হয়েছে!",querying:"চেক করা হচ্ছে…",noipv4:"পাবলিক IPv4 পাওয়া যায়নি",lanTry:"চেষ্টা চলছে…",lanFail:"পাওয়া যায়নি (ব্রাউজার ব্লক করেছে)",note:"এখানে শুধু পাবলিক IPv4 দেখানো হয়; আপনার নেটওয়ার্কে পাবলিক IPv4 না থাকলে ব্যর্থ হতে পারে। অবস্থান আনুমানিক।",loc:"অবস্থান",isp:"নেটওয়ার্ক / আইএসপি",lanTip:"লোকাল IPv4 ব্রাউজার রক্ষা করে; WebRTC দিয়ে চেষ্টা করা হয়, নিশ্চিত নয়।"},
+  ng:{title:"IPv4 Lookup | GoToolOnline",desc:"Show your public IPv4 and rough location (country, city).",h1:"IPv4 Lookup (Dotted Decimal)",btnV4:"Show My IPv4",btnCopy:"Copy",btnLan:"Try Local IPv4 (Experimental)",labelPublic:"Your IPv4:",labelLan:"Local IPv4 (Experimental):",copied:"Copied!",querying:"Checking…",noipv4:"No public IPv4",lanTry:"Trying…",lanFail:"No show (browser block am)",note:"Na public IPv4 we dey show. If your network no get am, e fit fail. Location na approximation.",loc:"Location",isp:"Network / ISP",lanTip:"Local/private IPv4 dey protected; WebRTC trial no sure."},
+  sw:{title:"Utafutaji wa IPv4 | GoToolOnline",desc:"Onyesha IPv4 ya umma na eneo (nchi, jiji).",h1:"Utafutaji wa IPv4 (Dotted Decimal)",btnV4:"Onyesha IPv4 Yangu",btnCopy:"Nakili",btnLan:"Jaribu IPv4 ya Ndani (Majaribio)",labelPublic:"IPv4 yako:",labelLan:"IPv4 ya Ndani (Majaribio):",copied:"Imenakiliwa!",querying:"Inakaguliwa…",noipv4:"Haijapata IPv4 ya umma",lanTry:"Inajaribu…",lanFail:"Haipatikani (imezuiwa na kivinjari)",note:"Ukurasa huu unaonyesha IPv4 ya umma pekee; kama huna, inaweza kukosa. Eneo ni la kukadiria.",loc:"Eneo",isp:"Mtandao / ISP",lanTip:"IPv4 ya ndani inalindwa na vivinjari; jaribio la WebRTC halihakikishwi."},
+  ar:{title:"بحث IPv4 | GoToolOnline",desc:"اعرض IPv4 العام ومعلومات الموقع (البلد، المدينة).",h1:"بحث IPv4 (صيغة النقاط)",btnV4:"اعرض IPv4 الخاص بي",btnCopy:"نسخ",btnLan:"محاولة IPv4 المحلي (تجريبي)",labelPublic:"عنوان IPv4 الخاص بك:",labelLan:"IPv4 المحلي (تجريبي):",copied:"تم النسخ!",querying:"جارٍ الفحص…",noipv4:"تعذر الحصول على IPv4 العام",lanTry:"جارٍ المحاولة…",lanFail:"غير متاح (حجبه المتصفح)",note:"هذه الصفحة تعرض IPv4 العام فقط؛ إن لم يكن متاحًا فقد تفشل العملية. الموقع تقريبي.",loc:"الموقع",isp:"الشبكة / مزود الخدمة",lanTip:"عنوان IPv4 المحلي محمي من المتصفحات؛ محاولة WebRTC ليست مضمونة."}
+};
 
-function showCopied(){
-  const el=$('#copied'); el.style.display=''; setTimeout(()=>el.style.display='none',1200);
+// Map to set <html lang> that matches your sitemap scheme
+function mapHtmlLang(lang){
+  if (lang === 'ph') return 'fil';
+  if (lang === 'zh') return 'zh-CN';
+  if (lang === 'ng') return 'en-NG';
+  return lang;
 }
 
-function setText(id, txt){ const el=document.getElementById(id); if(el) el.textContent=txt; }
+const IPV4_RE=/^(?:(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)\\.){3}(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)$/;
+const $=s=>document.querySelector(s);
+const TIMEOUT=6000;
 
-async function fetchIPv4(){
-  setText('ip','查询中…');
+// fetch with timeout
+function fetchJSON(url){
+  const ctrl=new AbortController(); const t=setTimeout(()=>ctrl.abort(), TIMEOUT);
+  return fetch(url,{signal:ctrl.signal,cache:'no-store'})
+    .then(r=>{ if(!r.ok) throw new Error('http '+r.status); return r.json(); })
+    .finally(()=>clearTimeout(t));
+}
+
+// UI helpers
+function tkey(key){ const lang=$('#lang').value; return (I18N[lang]||I18N.en)[key]||I18N.en[key]||key; }
+function set(id, text){ const el=document.getElementById(id); if(el) el.textContent=text; }
+
+function applyLang(lang){
+  const dict=I18N[lang]||I18N.en;
+  document.title=dict.title;
+  const md=document.querySelector('meta[name="description"]'); if(md) md.setAttribute('content', dict.desc);
+  document.documentElement.lang = mapHtmlLang(lang);
+  document.documentElement.dir = (lang==='ar')?'rtl':'ltr';
+
+  set('h1', dict.h1);
+  set('btnV4', dict.btnV4);
+  set('btnCopy', dict.btnCopy);
+  set('btnLan', dict.btnLan);
+  set('labelPublic', dict.labelPublic);
+  set('labelLan', dict.labelLan);
+  set('note', dict.note);
+  set('locLabel', dict.loc);
+  set('ispLabel', dict.isp);
+  set('lanTip', dict.lanTip);
+
+  // reflect selection
+  $('#lang').value = lang;
+
+  // persist and keep lang in URL
+  localStorage.setItem('lang', lang);
+  const qs=new URLSearchParams(location.search); qs.set('lang', lang);
+  history.replaceState({},'',location.pathname+'?'+qs.toString());
+}
+
+function bootLang(){
+  const qs=new URLSearchParams(location.search);
+  const fromQS=qs.get('lang');
+  const fromLS=localStorage.getItem('lang');
+  const lang = I18N[fromQS]?fromQS:(I18N[fromLS]?fromLS:'en');
+  applyLang(lang);
+}
+
+// main IPv4 + geolocation
+async function fetchIPv4AndGeo(){
+  set('ip', tkey('querying'));
+  set('loc','—'); set('isp','—');
   try{
-    const ctrl=new AbortController();
-    const t=setTimeout(()=>ctrl.abort(), 5000);
-    const r=await fetch('https://api4.ipify.org?format=json', {signal:ctrl.signal, cache:'no-store'});
-    clearTimeout(t);
-    if(!r.ok) throw new Error('http '+r.status);
-    const d=await r.json();
-    const ip=String(d.ip||'');
-    if(IPV4_RE.test(ip)){ setText('ip', ip); }
-    else { setText('ip', '未获取到公网 IPv4'); }
+    const d = await fetchJSON('https://api4.ipify.org?format=json');
+    const ip = String(d.ip||'');
+    if (!IPV4_RE.test(ip)) throw new Error('no ipv4');
+
+    set('ip', ip);
+
+    // Geo lookup using ipapi.co
+    try{
+      const g = await fetchJSON('https://ipapi.co/'+encodeURIComponent(ip)+'/json/');
+      // Fields: country_name, region, city, org
+      const country = g.country_name || '';
+      const region  = g.region || '';
+      const city    = g.city || '';
+      const org     = g.org || g.org_name || '';
+      const partsLoc = [country, region, city].filter(Boolean);
+      set('loc', partsLoc.length ? partsLoc.join(', ') : '—');
+      set('isp', org || '—');
+    }catch(e){
+      // Soft fail: leave loc/isp as em dashes
+    }
   }catch(e){
-    setText('ip','未获取到公网 IPv4');
+    set('ip', tkey('noipv4'));
   }
 }
 
 function copyIPv4(){
   const v=($('#ip').textContent||'').trim();
   if(!IPV4_RE.test(v)) return;
-  navigator.clipboard?.writeText(v).then(showCopied).catch(()=>{});
+  navigator.clipboard?.writeText(v).then(()=>{
+    const el=$('#copied'); el.textContent = tkey('copied'); el.style.display='';
+    setTimeout(()=>el.style.display='none', 1200);
+  }).catch(()=>{});
 }
 
-// —— 实验：尝试获取内网 IPv4 ——
-// 说明：现代浏览器可能只返回 mDNS host（xxxx.local），或干脆不暴露；因此成功率不保证。
+// Experimental local IPv4 via WebRTC
 async function detectLAN(){
-  setText('lan','尝试中…');
+  set('lan', tkey('lanTry'));
   try{
-    const pc=new RTCPeerConnection({iceServers:[]}); // 本地候选即可
+    const pc=new RTCPeerConnection({iceServers:[]});
     pc.createDataChannel('x');
     const found=new Set();
     const stop=()=>{ try{pc.close();}catch(e){} };
-    const timer=setTimeout(()=>{ stop(); if($('#lan').textContent==='尝试中…') setText('lan','未获取到（浏览器已屏蔽）'); }, 7000);
+    const timer=setTimeout(()=>{ stop(); if($('#lan').textContent===tkey('lanTry')) set('lan', tkey('lanFail')); }, 7000);
 
     pc.onicecandidate=(e)=>{
-      if(!e.candidate){ return; }
+      if(!e.candidate) return;
       const c=e.candidate.candidate||'';
-      // 仅 host 候选
       if(!/ typ host\\b/.test(c)) return;
-      // 抓 IPv4
       const m=c.match(/(\\d{1,3}(?:\\.\\d{1,3}){3})/);
       if(!m) return;
       const ip=m[1];
       if(!IPV4_RE.test(ip)) return;
-      // 只收 RFC1918 私网
       if(/^10\\./.test(ip) || /^192\\.168\\./.test(ip) || /^172\\.(1[6-9]|2\\d|3[0-1])\\./.test(ip)){
         if(!found.has(ip)){
           found.add(ip);
-          setText('lan', ip);
+          set('lan', ip);
           clearTimeout(timer);
           stop();
         }
@@ -123,16 +220,19 @@ async function detectLAN(){
     const sdp=await pc.createOffer({offerToReceiveAudio:false,offerToReceiveVideo:false});
     await pc.setLocalDescription(sdp);
   }catch(e){
-    setText('lan','未获取到（浏览器已屏蔽）');
+    set('lan', tkey('lanFail'));
   }
 }
 
-document.getElementById('btnV4').addEventListener('click', fetchIPv4);
+// wire up
+bootLang();
+document.getElementById('lang').addEventListener('change', e=>applyLang(e.target.value));
+document.getElementById('btnV4').addEventListener('click', fetchIPv4AndGeo);
 document.getElementById('btnCopy').addEventListener('click', copyIPv4);
 document.getElementById('btnLan').addEventListener('click', detectLAN);
 
-// 首次自动拉取公网 IPv4
-fetchIPv4();
+// auto run
+fetchIPv4AndGeo();
 </script>
 </body>
 </html>
