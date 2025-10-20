@@ -246,7 +246,11 @@
       const lang = pickLang();
 
       if (lang==='ar') document.documentElement.dir='rtl'; else document.documentElement.dir='ltr';
-      document.documentElement.lang = (lang==='ph'?'tl':(lang==='ng'?'en':lang));
+     document.documentElement.lang =
+  (lang==='ph' ? 'fil' :
+   lang==='zh' ? 'zh-CN' :
+   lang==='ng' ? 'en-NG' :
+   lang);
 
       // ===== 语言面板 =====
       const bar = document.getElementById('langbar');
