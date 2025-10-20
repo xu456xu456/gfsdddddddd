@@ -59,11 +59,11 @@
   const JUMP_V = -420;     // 跳跃初速度
   const BIRD_X = W*0.28;
 
-  // —— 难度：管道间距（起步更宽，逐步收窄到默认）——
-  const PIPE_GAP_MIN = 150, PIPE_GAP_MAX = 190; // 最终难度范围（原来）
+  // —— 难度：管道间距（前 2 根超宽；从第 3 根开始变窄，10 根内收敛到常规难度）——
+  const PIPE_GAP_MIN = 150, PIPE_GAP_MAX = 190; // 常规难度范围
   const GAP_START_MIN = 260, GAP_START_MAX = 300; // 开局更宽
-  const EASY_COUNT = 5;      // 前 5 根特别宽
-  const RAMP_COUNT = 20;     // 再用 20 根从宽慢慢过渡到默认
+  const EASY_COUNT = 4;     // ✅ 只保留前 4 根特别宽（第 3 根起开始变窄）
+  const RAMP_COUNT = 10;    // ✅ 在接下来的 10 根内线性收窄到常规难度
   const PIPE_W = 70;
   const PIPE_SPEED = 160;      // px/s
   const PIPE_INTERVAL = 1450;  // ms
@@ -71,7 +71,21 @@
   // 状态
   let birdY, birdV, score, best, running=false, paused=false, gameOver=false;
   let lastTS=0, accInterval=0, pipeCount=0;
+  let mMsg='', mTTL=0;          // 里程碑提示
+  let milestone99Shown = false; // 99+ 只提示一次
   const pipes = []; // {x, topH, gap, passed}
+
+  // 里程碑文案
+  const MILESTONES = new Map([
+    [10, '上班摸鱼的人手感来了！'],
+    [20, '节奏稳得一匹，继续保持！'],
+    [30, '神仙操作！冲击个人纪录！'],
+    [40, '手到擒来，已入佳境！'],
+    [50, '半百关口轻松越！'],
+    [60, '节奏拿捏！丝滑走位！'],
+    [70, '高手下凡，稳定发挥！'],
+    [80, '飞得漂亮，这是最高等级了！']
+  ]);
 
   // 背景
   const skyGrad = ctx.createLinearGradient(0,0,0,H);
@@ -89,6 +103,8 @@
     pipeCount = 0;
     accInterval = 0;
     lastTS = 0;
+    milestone99Shown = false;
+    mMsg=''; mTTL=0;
     $score.textContent = score;
     best = parseInt(localStorage.getItem(BEST_KEY)||'0',10);
     $best.textContent = best;
@@ -104,7 +120,6 @@
 
   // 重开（重置并立即开始）
   function restartGame(){
-    // 更稳：先清状态，再 reset，再 start
     running = false;
     paused = false;
     gameOver = false;
@@ -117,7 +132,7 @@
     if (pipeCount < EASY_COUNT){
       return rand(GAP_START_MIN, GAP_START_MAX);
     }
-    // 在 RAMP_COUNT 根内线性过渡到最终难度
+    // 在 RAMP_COUNT 根内线性过渡到常规难度
     const t = Math.min(1, (pipeCount - EASY_COUNT) / RAMP_COUNT);
     const curMin = Math.round(lerp(GAP_START_MIN, PIPE_GAP_MIN, t));
     const curMax = Math.round(lerp(GAP_START_MAX, PIPE_GAP_MAX, t));
@@ -153,6 +168,15 @@
         p.passed = true;
         score++;
         $score.textContent = score;
+
+        // 触发里程碑提示
+        if (MILESTONES.has(score)) {
+          flashMsg(MILESTONES.get(score));
+        }
+        if (!milestone99Shown && score >= 99){
+          flashMsg('突破极限！已进入传说分段！');
+          milestone99Shown = true;
+        }
       }
     }
     // 清理离开屏幕的管道（最多保留6个以内）
@@ -172,6 +196,9 @@
         return;
       }
     }
+
+    // 里程碑提示计时衰减
+    if (mTTL > 0) mTTL -= dt * 1000;
   }
 
   function draw(){
@@ -201,6 +228,9 @@
 
     // 鸟
     drawBird(BIRD_X, birdY);
+
+    // 顶部里程碑提示（淡入淡出）
+    if (mTTL > 0) toast(mMsg);
 
     // 提示
     if (!running && !gameOver){
@@ -283,6 +313,20 @@
     ctx.font = '600 18px system-ui,Arial';
     ctx.fillStyle = '#cbd5e1';
     ctx.fillText(text, (W - ctx.measureText(text).width)/2, y);
+  }
+  function toast(text){
+    const alpha = Math.max(0, Math.min(1, mTTL / 2200)); // 逐渐消失
+    ctx.font = 'bold 22px system-ui,Arial';
+    const tw = ctx.measureText(text).width + 24;
+    const x = (W - tw)/2, y = 60;
+    ctx.fillStyle = `rgba(0,0,0,${0.25 * alpha})`;
+    ctx.fillRect(x, y-26, tw, 40);
+    ctx.fillStyle = `rgba(230,237,243,${alpha})`;
+    ctx.fillText(text, (W - (tw-24))/2, y);
+  }
+  function flashMsg(msg){
+    mMsg = msg;
+    mTTL = 2200; // 显示 2.2 秒
   }
   function AABB(ax,ay,aw,ah, bx,by,bw,bh){
     return ax < bx+bw && ax+aw > bx && ay < by+bh && ay+ah > by;
