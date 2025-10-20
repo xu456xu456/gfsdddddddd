@@ -13,24 +13,31 @@
   .btn:active{transform:translateY(1px)}
   .score{font-weight:700}
   a{color:#8ab4f8;text-decoration:none}
+
+  /* 全屏容器当“框”使用 */
+  #stage{position:relative}
+  #stage:fullscreen{
+    background:#0b0f1a;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:10px;
+  }
+  #stage:fullscreen #c{
+    box-shadow:0 0 0 2px #2a3245, 0 10px 40px rgba(0,0,0,.5);
+    border-radius:14px;
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="wrap" id="stage">
   <div class="hud">
     <span class="score">Score: <span id="score">0</span></span>
     <span>Best: <span id="best">0</span></span>
     <button id="start" class="btn">▶︎ Start</button>
     <button id="pause" class="btn">⏸ Pause</button>
     <button id="restart" class="btn">↺ Restart</button>
+    <button id="fullscreen" class="btn">⛶ Fullscreen</button>
   </div>
   <canvas id="c" width="420" height="680" aria-label="Flappy Mini"></canvas>
-  <div style="opacity:.7;font-size:14px">
-    点击 / 触摸 / 空格键 跳跃 · P 暂停 · 纯前端 · 无资源文件
-  </div>
-  <div style="opacity:.6;font-size:12px">
-    © buildyourside.com · <a href="/">返回首页</a>
-  </div>
 </div>
 
 <script>
@@ -42,16 +49,29 @@
   const $start = document.getElementById('start');
   const $pause = document.getElementById('pause');
   const $restart = document.getElementById('restart');
+  const $fsBtn = document.getElementById('fullscreen');
+  const stage = document.getElementById('stage');
   const BEST_KEY = 'flappy_best_v1';
 
-  // 响应式：小屏自动缩放到窗口宽度
+  // 响应式：根据视口或全屏状态缩放到合适尺寸
   function fitCanvas(){
-    const maxW = Math.min(480, window.innerWidth - 20);
-    const scale = maxW / cvs.width;
+    const inFS = document.fullscreenElement === stage;
+    const vw = inFS ? screen.width  : window.innerWidth;
+    const vh = inFS ? screen.height : window.innerHeight;
+    // 既考虑宽度也考虑高度，取不溢出的最小缩放
+    const scaleW = Math.min(480, vw - 20) / cvs.width;
+    const scaleH = (vh - 20) / cvs.height;
+    const scale = Math.max(0.5, Math.min(scaleW, scaleH)); // 给个下限，别太小
     cvs.style.width = (cvs.width * scale) + 'px';
     cvs.style.height= (cvs.height* scale) + 'px';
   }
-  window.addEventListener('resize', fitCanvas); fitCanvas();
+  window.addEventListener('resize', fitCanvas);
+  window.addEventListener('orientationchange', fitCanvas);
+  document.addEventListener('fullscreenchange', ()=>{
+    $fsBtn.textContent = (document.fullscreenElement === stage) ? '⤢ Exit' : '⛶ Fullscreen';
+    fitCanvas();
+  });
+  fitCanvas();
 
   // 游戏参数
   const W = cvs.width, H = cvs.height;
@@ -59,11 +79,11 @@
   const JUMP_V = -420;     // 跳跃初速度
   const BIRD_X = W*0.28;
 
-  // —— 难度：管道间距（前 2 根超宽；从第 3 根开始变窄，10 根内收敛到常规难度）——
+  // —— 难度：前 2 根超宽；第 3 根起变窄，10 根内收敛到常规难度 —— 
   const PIPE_GAP_MIN = 150, PIPE_GAP_MAX = 190; // 常规难度范围
   const GAP_START_MIN = 260, GAP_START_MAX = 300; // 开局更宽
-  const EASY_COUNT = 4;     // ✅ 只保留前 4 根特别宽（第 3 根起开始变窄）
-  const RAMP_COUNT = 10;    // ✅ 在接下来的 10 根内线性收窄到常规难度
+  const EASY_COUNT = 3;     // 前 2 根特别宽
+  const RAMP_COUNT = 10;    // 接下来 10 根内线性收窄
   const PIPE_W = 70;
   const PIPE_SPEED = 160;      // px/s
   const PIPE_INTERVAL = 1450;  // ms
@@ -87,7 +107,7 @@
     [80, '飞得漂亮，这是最高等级了！']
   ]);
 
-  // 背景
+  // 背景渐变
   const skyGrad = ctx.createLinearGradient(0,0,0,H);
   skyGrad.addColorStop(0,'#0b1224');
   skyGrad.addColorStop(1,'#0f172a');
@@ -363,18 +383,31 @@
     birdV = JUMP_V;
   }
 
+  // 全屏开关
+  function toggleFS(){
+    if (document.fullscreenElement === stage){
+      document.exitFullscreen?.();
+    } else {
+      stage.requestFullscreen?.({ navigationUI: "hide" }).catch(()=>{ /* 忽略失败 */ });
+    }
+  }
+
   // 事件
   cvs.addEventListener('pointerdown', jump, {passive:true});
+  cvs.addEventListener('dblclick', (e)=>{ e.preventDefault(); toggleFS(); });
+
   window.addEventListener('keydown', (e)=>{
     if (e.code === 'Space') { e.preventDefault(); jump(); }
     if (e.key.toLowerCase() === 'p') togglePause();
     if (e.key.toLowerCase() === 'r') restartGame();
+    if (e.key.toLowerCase() === 'f') toggleFS(); // 额外：按 F 切换全屏
   });
 
-  // 按钮事件（更稳：用 addEventListener，并阻止默认）
+  // 按钮事件
   $start.addEventListener('click', (e)=>{ e.preventDefault(); start(); });
   $pause.addEventListener('click', (e)=>{ e.preventDefault(); togglePause(); });
   $restart.addEventListener('click', (e)=>{ e.preventDefault(); restartGame(); });
+  $fsBtn.addEventListener('click', (e)=>{ e.preventDefault(); toggleFS(); });
 
   // 初始渲染
   reset(); draw();
