@@ -96,6 +96,9 @@ hr{border:none;height:1px;background:#223357;margin:10px 0}
 <footer>© 2025 GoToolOnline.com</footer>
 
 <script>
+// ===== single $ helper =====
+const $ = (s)=>document.querySelector(s);
+
 // ===== i18n =====
 const I18N = {
   zh:{title:"IPv4/IPv6 查询 | GoToolOnline",desc:"同时显示你的公网 IPv4 和 IPv6，并附地理归属（国家/地区/城市/运营商）。",h1:"IPv4 / IPv6 查询",
@@ -170,12 +173,11 @@ function mapHtmlLang(lang){
   return lang;
 }
 
-const $=s=>document.querySelector(s);
 const TIMEOUT=7000;
 const IPV4_RE=/^(?:(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)\\.){3}(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)$/;
-// 少年版 IPv6 检测：只要包含 ":" 且无空格即可（足以用于展示/复制；严格校验过长且意义有限）
 const IPV6_RE=/^[0-9a-fA-F:]+$/;
 
+// i18n apply/boot
 function tkey(k){ const lang=$('#lang').value; return (I18N[lang]||I18N.zh)[k]||I18N.zh[k]||k; }
 function setText(id, txt){ const el=document.getElementById(id); if(el) el.textContent=txt; }
 
@@ -200,7 +202,7 @@ function bootLang(){
   applyLang(I18N[fromQS]?fromQS:(I18N[fromLS]?fromLS:'zh'));
 }
 
-// ---- Fetch helpers ----
+// Fetch helpers
 function fetchJSON(url){
   const ctrl=new AbortController(); const t=setTimeout(()=>ctrl.abort(), TIMEOUT);
   return fetch(url,{signal:ctrl.signal,cache:'no-store'})
@@ -210,7 +212,7 @@ function fetchJSON(url){
 function jsonp(url, timeout=TIMEOUT){
   return new Promise((resolve, reject)=>{
     const cb='__jp'+Math.random().toString(36).slice(2);
-    const clean=()=>{ delete window[cb]; if(s.parentNode) s.parentNode.removeChild(s); if(timer) clearTimeout(timer); };
+    const clean=()=>{ try{delete window[cb];}catch(e){} if(s.parentNode) s.parentNode.removeChild(s); if(timer) clearTimeout(timer); };
     window[cb]=(data)=>{ clean(); resolve(data); };
     const s=document.createElement('script');
     s.src = url.replace(/callback=[^&]*/,'').replace(/\?$/,'') + (url.includes('?')?'&':'?') + 'callback=' + cb;
@@ -242,7 +244,7 @@ function loadSohuCity(timeout=TIMEOUT){
   });
 }
 
-// ---- IPv4 detection chain (China-friendly) ----
+// IPv4 chain (CN-friendly)
 async function getIPv4(){
   try{ const d=await loadSohuCity(); const ip=d&&d.cip?String(d.cip):''; if(IPV4_RE.test(ip)) return {ip, hint:d.cname||''}; }catch(e){}
   try{ const d=await fetchJSON('https://api4.ipify.org?format=json'); const ip=d&&d.ip?String(d.ip):''; if(IPV4_RE.test(ip)) return {ip}; }catch(e){}
@@ -253,21 +255,16 @@ async function getIPv4(){
   throw new Error('no ipv4');
 }
 
-// ---- IPv6 detection chain ----
+// IPv6 chain
 async function getIPv6(){
-  // 1) ipify v6 JSON
   try{ const d=await fetchJSON('https://api6.ipify.org?format=json'); const ip=d&&d.ip?String(d.ip):''; if(IPV6_RE.test(ip) && ip.includes(':')) return {ip}; }catch(e){}
-  // 2) ipify v6 JSONP
   try{ const d=await jsonp('https://api6.ipify.org?format=jsonp'); const ip=d&&d.ip?String(d.ip):''; if(IPV6_RE.test(ip) && ip.includes(':')) return {ip}; }catch(e){}
-  // 3) ip-api JSONP (detect any, require v6)
   try{ const d=await jsonp('https://ip-api.com/json/?fields=status,message,query'); const ip=d&&d.query?String(d.query):''; if(d&&d.status==='success'&&IPV6_RE.test(ip) && ip.includes(':')) return {ip}; }catch(e){}
-  // 4) ipify any-stack (api64) JSON
   try{ const d=await fetchJSON('https://api64.ipify.org?format=json'); const ip=d&&d.ip?String(d.ip):''; if(IPV6_RE.test(ip) && ip.includes(':')) return {ip}; }catch(e){}
-  // 若仍失败，则视为没有公网 IPv6
   throw new Error('no ipv6');
 }
 
-// ---- Geo by IP (both v4 & v6) ----
+// Geo by IP
 async function geoByIP(ip){
   try{
     const f='status,country,regionName,city,isp';
@@ -275,48 +272,48 @@ async function geoByIP(ip){
     if(d&&d.status==='success') return {country:d.country||'',region:d.regionName||'',city:d.city||'',org:d.isp||''};
   }catch(e){}
   try{
-    const d=await jsonp('https://ipapi.co/'+encodeURIComponent(ip)+'/json/'); // ipapi 支持 v4/v6
+    const d=await jsonp('https://ipapi.co/'+encodeURIComponent(ip)+'/json/');
     return {country:d.country_name||'',region:d.region||'',city:d.city||'',org:d.org||d.org_name||''};
   }catch(e){}
   return null;
 }
 
-// ---- UI actions ----
+// Actions
 async function showBoth(){
-  // IPv4
+  // v4
   setText('ip4', tkey('checking')); setText('geo4','—');
   try{
-    const res4=await getIPv4(); setText('ip4', res4.ip);
+    const r4=await getIPv4(); setText('ip4', r4.ip);
     try{
-      const g4=await geoByIP(res4.ip);
+      const g4=await geoByIP(r4.ip);
       if(g4){ const pieces=[g4.country,g4.region,g4.city].filter(Boolean); setText('geo4',(pieces.length?pieces.join(', '):'—') + (g4.org?(' · '+g4.org):'')); }
-      else if(res4.hint){ setText('geo4', res4.hint); }
+      else if(r4.hint){ setText('geo4', r4.hint); }
     }catch(e){}
   }catch(e){ setText('ip4', tkey('no4')); }
 
-  // IPv6
+  // v6
   setText('ip6', tkey('checking')); setText('geo6','—');
   try{
-    const res6=await getIPv6(); setText('ip6', res6.ip);
+    const r6=await getIPv6(); setText('ip6', r6.ip);
     try{
-      const g6=await geoByIP(res6.ip);
+      const g6=await geoByIP(r6.ip);
       if(g6){ const pieces=[g6.country,g6.region,g6.city].filter(Boolean); setText('geo6',(pieces.length?pieces.join(', '):'—') + (g6.org?(' · '+g6.org):'')); }
     }catch(e){}
   }catch(e){ setText('ip6', tkey('no6')); }
 }
 
-function copyText(id, tipId, isV6=false){
-  const v=($(id).textContent||'').trim();
+function copyText(idTip, ipStr, isV6=false){
+  const v = ipStr.trim();
   if(!v) return;
   if(!isV6 && !IPV4_RE.test(v)) return;
   if(isV6 && !(IPV6_RE.test(v) && v.includes(':'))) return;
   navigator.clipboard?.writeText(v).then(()=>{
-    const el=$(tipId); el.textContent=tkey('copied'); el.style.display='';
+    const el=$(idTip); el.textContent=tkey('copied'); el.style.display='';
     setTimeout(()=>el.style.display='none', 1200);
   }).catch(()=>{});
 }
 
-// Experimental: local IPv4 via WebRTC
+// Local IPv4 via WebRTC
 async function detectLAN(){
   setText('lan', tkey('lanTrying'));
   try{
@@ -336,18 +333,17 @@ async function detectLAN(){
   }catch(e){ setText('lan', tkey('lanFail')); }
 }
 
-// Wire up
-function $(s){ return document.querySelector(s); }
+// Wire
 bootLang();
-document.getElementById('lang').addEventListener('change', e=>applyLang(e.target.value));
-document.getElementById('btnBoth').addEventListener('click', showBoth);
-document.getElementById('btnCopy4').addEventListener('click', ()=>copyText('#ip4','#copied4', false));
-document.getElementById('btnCopy6').addEventListener('click', ()=>copyText('#ip6','#copied6', true));
-document.getElementById('btnLan').addEventListener('click', detectLAN);
+$('#lang').addEventListener('change', e=>applyLang(e.target.value));
+$('#btnBoth').addEventListener('click', showBoth);
+$('#btnCopy4').addEventListener('click', ()=>copyText('#copied4', $('#ip4').textContent, false));
+$('#btnCopy6').addEventListener('click', ()=>copyText('#copied6', $('#ip6').textContent, true));
+$('#btnLan').addEventListener('click', detectLAN);
 // auto run
 showBoth();
 
-// ===== Home link fix (preserve ?lang; support multi-level dirs) =====
+// Home link fix (preserve ?lang; support multi-level dirs)
 (function(){
   var path = location.pathname.replace(/\/+$/,'');
   var parts = path.split('/');
