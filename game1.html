@@ -194,7 +194,7 @@ function clickAt(px,py){
 
 function win(){
   gameOver=true;
-  statusEl.textContent = "You trapped it! ✅";
+  statusEl.textContent = "恭喜 抓住了那只小猫";
   if(best===0 || moves<best){ best=moves; localStorage.setItem('TTC_best_one',best); }
   bestEl.textContent = best || '–';
   draw();
