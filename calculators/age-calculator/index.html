@@ -1,175 +1,161 @@
-<script>
-// 追加到 /assets/i18n-dict.js —— Age Calculator 的多语言文案
-// 确保 window.I18N_DICT、各语言对象和 .tool 存在
-(function(D){
-  function ensure(o,k){ return o[k]||(o[k]={}); }
-  D.ph = D.ph||{}; ensure(D.ph,'tool');
-  D.id = D.id||{}; ensure(D.id,'tool');
-  D.vi = D.vi||{}; ensure(D.vi,'tool');
-  D.bn = D.bn||{}; ensure(D.bn,'tool');
-  D.ng = D.ng||{}; ensure(D.ng,'tool');   // English (Nigeria)
-  D.sw = D.sw||{}; ensure(D.sw,'tool');
-  D.ar = D.ar||{}; ensure(D.ar,'tool');
-  D.zh = D.zh||{}; ensure(D.zh,'tool');   // 若你已写过 zh，可忽略或合并
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Age Calculator — Exact years, months, days | GoToolOnline</title>
+  <meta name="description" content="Free age calculator: exact years, months, and days between two dates (end date optional). Mobile-friendly." />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="canonical" href="https://gotoolonline.com/calculators/age-calculator/" />
 
-  // Tagalog (ph)
-  D.ph.tool['age-calculator'] = {
-    page:{ title:'Age Calculator · GoToolOnline', desc:'Eksaktong edad sa taon, buwan, at araw. May opsyonal na end date.' },
-    navBack:'← Bumalik sa Home',
-    title:'Age Calculator',
-    intro:'Kunin ang eksaktong edad mo sa taon, buwan, at araw — puwedeng mag-set ng end date para mas eksakto.',
-    labDob:'Petsa ng kapanganakan',
-    labEnd:'End date (opsyonal)',
-    btnCalc:'Kalkulahin ang Edad',
-    resultPlaceholder:'Lalabas dito ang resulta.',
-    relTitle:'Kaugnay na mga tool',
-    rel_1:'Pagkakaiba ng Petsa',
-    rel_2:'World Time (by Country)',
-    rel_3:'Unit Converter',
-    backTop:'Bumalik sa Itaas ↑'
-  };
+  <!-- Social -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Age Calculator — Exact years, months, days">
+  <meta property="og:description" content="Free age calculator for precise difference between two dates.">
+  <meta property="og:url" content="https://gotoolonline.com/calculators/age-calculator/">
+  <meta name="twitter:card" content="summary">
 
-  // Bahasa Indonesia (id)
-  D.id.tool['age-calculator'] = {
-    page:{ title:'Kalkulator Usia · GoToolOnline', desc:'Umur tepat dalam tahun, bulan, hari. Dukungan tanggal akhir opsional.' },
-    navBack:'← Kembali ke Beranda',
-    title:'Kalkulator Usia',
-    intro:'Hitung umur tepat Anda (tahun, bulan, hari) — bisa atur tanggal akhir untuk hasil presisi.',
-    labDob:'Tanggal lahir',
-    labEnd:'Tanggal akhir (opsional)',
-    btnCalc:'Hitung Usia',
-    resultPlaceholder:'Hasil akan muncul di sini.',
-    relTitle:'Alat terkait',
-    rel_1:'Selisih Tanggal',
-    rel_2:'Waktu Dunia (per Negara)',
-    rel_3:'Konverter Satuan',
-    backTop:'Kembali ke Atas ↑'
-  };
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><text x='6' y='52' font-size='48'>🗓️</text></svg>'">
+  <style>
+    :root { --bg:#0a0f1e; --card:#0f1830; --muted:#9fb0c3; --fg:#eaf3ff; --acc:#4fb3ff; }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--fg)}
+    a{color:var(--fg);text-decoration:none}
+    header{max-width:900px;margin:20px auto 8px;display:flex;gap:12px;align-items:center;padding:0 16px}
+    .pill{padding:8px 12px;border:1px solid #24365b;background:#0f1a2f;border-radius:999px}
+    main{max-width:900px;margin:8px auto 56px;padding:0 16px}
+    .card{background:var(--card);border:1px solid #1a2843;border-radius:18px;padding:16px}
+    h1{margin:4px 0 6px}
+    .lede{font-size:16px;color:var(--muted);margin:.25rem 0 0.75rem}
+    label{display:block;margin:.5rem 0 .25rem}
+    input,button,select{padding:12px;border-radius:12px;border:1px solid #24365b;background:#0f1a2f;color:var(--fg);font-size:16px}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .row > div{display:flex;flex-direction:column}
+    .actions{margin-top:12px;display:flex;flex-wrap:wrap;gap:10px}
+    button{cursor:pointer;background:linear-gradient(180deg,#2a78ff,#0050d4);border:none;font-weight:700;letter-spacing:.2px}
+    button:hover{filter:brightness(1.06)}
+    .result{margin-top:16px;padding:12px 14px;background:#0d142a;border:1px solid #1c2d55;border-radius:14px;min-height:48px}
+    .muted{color:var(--muted)}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+    .tool a{display:block;background:#0d142a;border:1px solid #1b2c52;border-radius:16px;padding:12px}
+    .tool a:hover{border-color:var(--acc);box-shadow:0 0 0 3px rgba(79,179,255,.18)}
+    .top-links{margin-left:auto;display:flex;gap:8px;align-items:center}
+    @media (max-width:600px){ .row{grid-template-columns:1fr} }
+  </style>
+</head>
+<body>
+  <header>
+    <a class="pill" data-home href="#"><span>🛠️</span> <strong>GoToolOnline</strong></a>
+    <div class="top-links"><a class="pill" data-home href="#">← Back to Home</a></div>
+  </header>
 
-  // Vietnamese (vi)
-  D.vi.tool['age-calculator'] = {
-    page:{ title:'Máy tính tuổi · GoToolOnline', desc:'Tuổi chính xác theo năm, tháng, ngày. Hỗ trợ ngày kết thúc tùy chọn.' },
-    navBack:'← Về trang chủ',
-    title:'Máy tính tuổi',
-    intro:'Tính chính xác tuổi của bạn (năm, tháng, ngày) — có thể đặt ngày kết thúc để chính xác hơn.',
-    labDob:'Ngày sinh',
-    labEnd:'Ngày kết thúc (tuỳ chọn)',
-    btnCalc:'Tính tuổi',
-    resultPlaceholder:'Kết quả sẽ hiển thị tại đây.',
-    relTitle:'Công cụ liên quan',
-    rel_1:'Khoảng cách ngày',
-    rel_2:'Giờ thế giới (theo quốc gia)',
-    rel_3:'Chuyển đổi đơn vị',
-    backTop:'Lên đầu trang ↑'
-  };
+  <main>
+    <section class="card">
+      <h1>Age Calculator</h1>
+      <p class="lede">Exact difference in <strong>years, months, and days</strong>. End date is optional (defaults to today).</p>
 
-  // Bengali (bn)
-  D.bn.tool['age-calculator'] = {
-    page:{ title:'বয়স ক্যালকুলেটর · GoToolOnline', desc:'বছর, মাস, দিনে সঠিক বয়স। ঐচ্ছিক শেষ তারিখ সমর্থিত।' },
-    navBack:'← হোমে ফিরে যান',
-    title:'বয়স ক্যালকুলেটর',
-    intro:'আপনার বয়স সঠিকভাবে হিসাব করুন (বছর/মাস/দিন) — আরও নির্ভুলতার জন্য শেষ তারিখ সেট করতে পারেন।',
-    labDob:'জন্মতারিখ',
-    labEnd:'শেষ তারিখ (ঐচ্ছিক)',
-    btnCalc:'বয়স গণনা করুন',
-    resultPlaceholder:'ফলাফল এখানে দেখাবে।',
-    relTitle:'সম্পর্কিত টুলস',
-    rel_1:'তারিখ পার্থক্য',
-    rel_2:'বিশ্ব সময় (দেশভিত্তিক)',
-    rel_3:'ইউনিট কনভার্টার',
-    backTop:'উপরে ফিরে যান ↑'
-  };
+      <div class="row">
+        <div>
+          <label for="dob">Date of birth</label>
+          <input id="dob" type="date" aria-label="Date of birth">
+        </div>
+        <div>
+          <label for="end">End date <span class="muted">(optional)</span></label>
+          <input id="end" type="date" aria-label="End date">
+        </div>
+      </div>
 
-  // English (Nigeria) (ng) — 仍然英语，但可用更贴近本地的文案
-  D.ng.tool['age-calculator'] = {
-    page:{ title:'Age Calculator · GoToolOnline', desc:'Exact age in years, months, and days. Optional end date.' },
-    navBack:'← Back to Home',
-    title:'Age Calculator',
-    intro:'Get your exact age in years, months, and days — set an end date if you like.',
-    labDob:'Date of birth',
-    labEnd:'End date (optional)',
-    btnCalc:'Calculate Age',
-    resultPlaceholder:'Result will appear here.',
-    relTitle:'Related tools',
-    rel_1:'Date Difference',
-    rel_2:'World Time (by Country)',
-    rel_3:'Unit Converter',
-    backTop:'Back to Top ↑'
-  };
+      <div class="actions">
+        <button id="calc">Calculate age</button>
+        <button id="clear">Clear</button>
+      </div>
 
-  // Swahili (sw)
-  D.sw.tool['age-calculator'] = {
-    page:{ title:'Kikokotoo cha Umri · GoToolOnline', desc:'Umri sahihi kwa miaka, miezi, na siku. Tarehe ya mwisho hiari.' },
-    navBack:'← Rudi Nyumbani',
-    title:'Kikokotoo cha Umri',
-    intro:'Hesabu umri wako kwa usahihi (miaka, miezi, siku) — unaweza kuweka tarehe ya mwisho kwa usahihi zaidi.',
-    labDob:'Tarehe ya kuzaliwa',
-    labEnd:'Tarehe ya mwisho (hiari)',
-    btnCalc:'Kokotoa Umri',
-    resultPlaceholder:'Matokeo yataonekana hapa.',
-    relTitle:'Zana zinazohusiana',
-    rel_1:'Tofauti ya Tarehe',
-    rel_2:'Saa za Dunia (kwa Nchi)',
-    rel_3:'Kigeuzi cha Vitengo',
-    backTop:'Rudi Juu ↑'
-  };
+      <div id="out" class="result muted">Result will appear here.</div>
+    </section>
 
-  // Arabic (ar) — 右到左被 i18n-core 自动处理 dir="rtl"
-  D.ar.tool['age-calculator'] = {
-    page:{ title:'حاسبة العمر · GoToolOnline', desc:'العمر بدقة بالسنوات والأشهر والأيام. يدعم تاريخ نهاية اختياري.' },
-    navBack:'← الرجوع إلى الرئيسية',
-    title:'حاسبة العمر',
-    intro:'احسب عمرك بدقة (سنوات/أشهر/أيام) — يمكنك تحديد تاريخ نهاية لمزيد من الدقة.',
-    labDob:'تاريخ الميلاد',
-    labEnd:'تاريخ النهاية (اختياري)',
-    btnCalc:'احسب العمر',
-    resultPlaceholder:'ستظهر النتيجة هنا.',
-    relTitle:'أدوات ذات صلة',
-    rel_1:'فارق التاريخ',
-    rel_2:'الوقت حول العالم (حسب البلد)',
-    rel_3:'محوّل الوحدات',
-    backTop:'العودة للأعلى ↑'
-  };
+    <h2 class="muted" style="margin:22px 0 10px">Related tools</h2>
+    <div class="grid">
+      <div class="tool"><a href="../date-difference/">📅 Date Difference</a></div>
+      <div class="tool"><a href="../../time/timezone-converter/">🌍 World Time (by Country)</a></div>
+      <div class="tool"><a href="../../converter/unit-converter/">🔁 Unit Converter</a></div>
+    </div>
+  </main>
 
-  // 中文（若你还没写或想覆盖）
-  D.zh.tool['age-calculator'] = D.zh.tool['age-calculator'] || {
-    page:{ title:'年龄计算器 · GoToolOnline', desc:'精确到 年/月/日；支持自定义结束日期。' },
-    navBack:'← 返回首页',
-    title:'年龄计算器',
-    intro:'精确计算你的年龄（年/月/日），可选自定义“结束日期”。',
-    labDob:'出生日期',
-    labEnd:'结束日期（可选）',
-    btnCalc:'计算年龄',
-    resultPlaceholder:'结果会显示在这里。',
-    relTitle:'相关工具',
-    rel_1:'日期差计算',
-    rel_2:'世界时间（按国家）',
-    rel_3:'单位换算',
-    backTop:'返回顶部 ↑'
-  };
-})(window.I18N_DICT = window.I18N_DICT || {});
-</script>
+  <script>
+  (function(){
+    function parseDate(v){
+      if(!v) return null;
+      var t = v.split('-').map(Number);
+      if(t.length!==3) return null;
+      return new Date(t[0], t[1]-1, t[2]);
+    }
+    function daysInMonth(y,m){ return new Date(y, m+1, 0).getDate(); }
 
-<script>
-(function(){
-  // Compute site root by removing the last two segments (category/tool)
-  var path = location.pathname.replace(/\/+$/,''); // strip trailing slashes
-  var parts = path.split('/');
-  if (parts.length >= 3) parts = parts.slice(0, parts.length - 2);
-  else parts = ['']; // already at root
-  var home = parts.join('/') + '/';
+    function diffYMD(a, b){
+      // ensure a <= b
+      if(b < a){ var tmp=a; a=b; b=tmp; }
+      var y = b.getFullYear() - a.getFullYear();
+      var m = b.getMonth() - a.getMonth();
+      var d = b.getDate() - a.getDate();
 
-  // preserve ?lang if present
-  var cur = new URL(location.href);
-  var lang = cur.searchParams.get('lang');
-  if (lang) {
-    var u = new URL(home, location.origin);
-    u.searchParams.set('lang', lang);
-    home = u.pathname + u.search + u.hash;
-  }
+      if (d < 0){
+        // borrow from previous month
+        var pm = new Date(b.getFullYear(), b.getMonth(), 0); // last day of prev month
+        d += pm.getDate();
+        m -= 1;
+      }
+      if (m < 0){
+        m += 12;
+        y -= 1;
+      }
+      return {y:y, m:m, d:d};
+    }
 
-  document.querySelectorAll('a[data-home]').forEach(function(a){
-    a.setAttribute('href', home);
-  });
-})();
-</script>
+    function fmt(o){
+      return yPl(o.y) + ', ' + mPl(o.m) + ', ' + dPl(o.d);
+      function yPl(n){ return n + ' ' + (n===1?'year':'years'); }
+      function mPl(n){ return n + ' ' + (n===1?'month':'months'); }
+      function dPl(n){ return n + ' ' + (n===1?'day':'days'); }
+    }
+
+    var $ = function(id){ return document.getElementById(id); };
+    $('calc').addEventListener('click', function(){
+      var dob = parseDate($('dob').value);
+      var end = parseDate($('end').value) || new Date();
+      var out = $('out');
+      if(!dob){ out.textContent = 'Please enter a valid date of birth.'; out.classList.add('muted'); return; }
+      if(end < dob){ out.textContent = 'End date must be after date of birth.'; out.classList.add('muted'); return; }
+      var diff = diffYMD(dob, end);
+      out.classList.remove('muted');
+      out.textContent = fmt(diff);
+    });
+    $('clear').addEventListener('click', function(){
+      $('dob').value = '';
+      $('end').value = '';
+      $('out').textContent = 'Result will appear here.';
+      $('out').classList.add('muted');
+    });
+  })();
+  </script>
+
+  <!-- Home link resolver with ?lang preservation -->
+  <script>
+  (function(){
+    var path = location.pathname.replace(/\/+$/,''); 
+    var parts = path.split('/');
+    if (parts.length >= 3) parts = parts.slice(0, parts.length - 2);
+    else parts = [''];
+    var home = parts.join('/') + '/';
+    var cur = new URL(location.href);
+    var lang = cur.searchParams.get('lang');
+    if (lang) {
+      var u = new URL(home, location.origin);
+      u.searchParams.set('lang', lang);
+      home = u.pathname + u.search + u.hash;
+    }
+    document.querySelectorAll('a[data-home]').forEach(function(a){
+      a.setAttribute('href', home);
+    });
+  })();
+  </script>
+</body>
+</html>
