@@ -52,11 +52,13 @@
   :root { --bg:#0a0f1e; --card:#0f1830; --muted:#9fb0c3; --fg:#eaf3ff; --acc:#4fb3ff; --ok:#61d095; --warn:#ffb86b; --danger:#ff6b6b; }
   *{box-sizing:border-box}
   body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--fg)}
-  header{max-width:1200px;margin:20px auto 8px;display:flex;gap:12px;align-items:center;padding:0 16px}
+  header{max-width:1200px;margin:20px auto 8px;display:flex;gap:12px;align-items:center;padding:0 16px;position:relative}
   header a{color:var(--fg);text-decoration:none}
   .pill{padding:8px 12px;border:1px solid #24365b;background:#0f1a2f;border-radius:999px;white-space:nowrap}
   .langWrap{margin-left:auto;display:flex;align-items:center;gap:8px}
   .lang{padding:8px 10px;border-radius:10px;border:1px solid #24365b;background:#0f1a2f;color:#eaf3ff;font-size:14px}
+  /* If a global #global-lang exists in header (site-wide control), place it near logo */
+  #global-lang.lang-dropdown{appearance:none;-webkit-appearance:none;outline:none;border:1px solid #24365b;background:#0f1a2f;color:#eaf3ff;border-radius:999px;padding:.5rem 2rem .5rem .875rem;font:600 14px/1 Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif;position:absolute;left:160px;top:8px;z-index:10}
   main{max-width:1200px;margin:8px auto 72px;padding:0 16px}
   h1{font-size:32px;margin:8px 0 6px}
   p{color:var(--muted)}
@@ -234,7 +236,6 @@
         relOr:"অথবা",
         units:{s:"সেকেন্ড",m:"মিনিট",h:"ঘন্টা"}
     },
-    ng:{/* English (NG) */ ...this=>I18N.en}, // will fallback to en at runtime
     sw:{pageTitle:"Kipima Muda wa Kurudi Nyuma — Mpaka Vipima Muda 10 | GoToolOnline",metaDesc:"Vipima muda vingi (hadi 10). Preseti za haraka, upau wa maendeleo, arifa ya sauti. Rafiki kwa simu.",
         back:"← Rudi Nyumbani",crumbHome:"Nyumbani",crumbTime:"Zana za Muda",crumbCur:"Kipima Muda wa Kurudi Nyuma",
         h1:"Kipima Muda wa Kurudi Nyuma", hero:"Endesha <strong>hadi vipima muda 10</strong> kwa wakati mmoja. Preseti za haraka zipo hapa chini. Sauti italia muda ukiisha.",
@@ -260,8 +261,7 @@
         units:{s:"ث",m:"د",h:"س"}
     }
   };
-
-  // small helper to reuse en for ng
+  // English (NG) fallback to en
   I18N.ng = I18N.en;
 
   function getLang(){
@@ -270,13 +270,15 @@
   }
 
   function setHomeLinks(lang){
-    // mirror your existing resolver while preserving ?lang
-    var path = location.pathname.replace(/\/+$/,'');
+    // Compute site root by removing the last two segments (category/tool)
+    var path = location.pathname.replace(/\/+$/,''); // strip trailing slashes
     var parts = path.split('/');
     if (parts.length >= 3) parts = parts.slice(0, parts.length - 2);
-    else parts = [''];
+    else parts = ['']; // already at root
     var home = parts.join('/') + '/';
-    if (lang){
+
+    // preserve ?lang if present
+    if (lang) {
       var u = new URL(home, location.origin);
       u.searchParams.set('lang', lang);
       home = u.pathname + u.search + u.hash;
@@ -324,14 +326,14 @@
     relP.innerHTML = `${t.relText} <a href="/calculators/date-difference/">Date Difference Calculator</a> ${t.relOr} <a href="/calculators/percentage-calculator/">Percentage Calculator</a>.`;
 
     // Existing cards text refresh
-    document.querySelectorAll('.lbl-min').forEach(el=>el.firstChild.nodeValue = t.minutes + ' ');
-    document.querySelectorAll('.lbl-sec').forEach(el=>el.firstChild.nodeValue = t.seconds + ' ');
-    document.querySelectorAll('.lbl-sound').forEach(el=>{ el.lastChild.nodeValue = ' ' + t.sound; });
+    document.querySelectorAll('.lbl-min').forEach(el=>el.firstChild && (el.firstChild.nodeValue = t.minutes + ' '));
+    document.querySelectorAll('.lbl-sec').forEach(el=>el.firstChild && (el.firstChild.nodeValue = t.seconds + ' '));
+    document.querySelectorAll('.lbl-sound').forEach(el=>{ if (el.lastChild) el.lastChild.nodeValue = ' ' + t.sound; });
     document.querySelectorAll('.btn-start').forEach(el=>el.textContent = t.start);
     document.querySelectorAll('.btn-pause').forEach(el=>el.textContent = t.pause);
     document.querySelectorAll('.btn-reset').forEach(el=>el.textContent = t.reset);
     document.querySelectorAll('.btn-del').forEach(el=>{ el.textContent = t.delete; el.title = t.delete; });
-    document.querySelectorAll('.lbl-ends').forEach(el=>el.firstChild.nodeValue = t.ends + ' ');
+    document.querySelectorAll('.lbl-ends').forEach(el=>el.firstChild && (el.firstChild.nodeValue = t.ends + ' '));
     document.querySelectorAll('.tip-text').forEach(el=>el.textContent = t.tip);
     document.querySelectorAll('.title').forEach(el=>el.placeholder = t.titlePH);
 
@@ -339,10 +341,15 @@
     localStorage.setItem('lang', lang);
     const url = new URL(location.href);
     url.searchParams.set('lang', lang);
-    history.replaceState({}, '', url.pathname + '?' + url.searchParams.toString());
+    const qs = url.searchParams.toString();
+    history.replaceState({}, '', url.pathname + (qs ? ('?' + qs) : '') + location.hash);
 
     setHomeLinks(lang);
     window._i18n = t;
+
+    // sync to site-wide dropdown if present
+    const g = document.getElementById('global-lang');
+    if (g && g.value !== lang) g.value = lang;
   }
 
   const sel = document.getElementById('lang');
@@ -350,6 +357,15 @@
   sel.value = I18N[cur] ? cur : 'en';
   applyLang(sel.value);
   sel.addEventListener('change', ()=>applyLang(sel.value));
+
+  // If a site-wide #global-lang exists, keep two-way sync
+  (function syncGlobal(){
+    const g = document.getElementById('global-lang');
+    if (!g) return;
+    g.value = sel.value;
+    g.addEventListener('change', ()=>{ sel.value = g.value; applyLang(sel.value); });
+    sel.addEventListener('change', ()=>{ if (g.value !== sel.value) g.value = sel.value; });
+  })();
 </script>
 
 <script>
