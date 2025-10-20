@@ -8,7 +8,7 @@
   html,body{margin:0;height:100%;background:#0d1117;color:#e6edf3;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial;}
   .wrap{display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px}
   #c{background:#121826;border:2px solid #222a3a;border-radius:12px;touch-action:manipulation;}
-  .hud{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center;position:relative;z-index:2}
+  .hud{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center;position:relative;z-index:3}
   .btn{cursor:pointer;border:1px solid #2a3245;border-radius:10px;padding:6px 10px;background:#141a26}
   .btn:active{transform:translateY(1px)}
   .score{font-weight:700}
@@ -58,14 +58,19 @@
   const GRAV = 1500;       // 重力 px/s^2
   const JUMP_V = -420;     // 跳跃初速度
   const BIRD_X = W*0.28;
-  const PIPE_GAP_MIN = 150, PIPE_GAP_MAX = 190;
+
+  // —— 难度：管道间距（起步更宽，逐步收窄到默认）——
+  const PIPE_GAP_MIN = 150, PIPE_GAP_MAX = 190; // 最终难度范围（原来）
+  const GAP_START_MIN = 260, GAP_START_MAX = 300; // 开局更宽
+  const EASY_COUNT = 5;      // 前 5 根特别宽
+  const RAMP_COUNT = 20;     // 再用 20 根从宽慢慢过渡到默认
   const PIPE_W = 70;
   const PIPE_SPEED = 160;      // px/s
   const PIPE_INTERVAL = 1450;  // ms
 
   // 状态
   let birdY, birdV, score, best, running=false, paused=false, gameOver=false;
-  let lastTS=0, accInterval=0;
+  let lastTS=0, accInterval=0, pipeCount=0;
   const pipes = []; // {x, topH, gap, passed}
 
   // 背景
@@ -80,6 +85,8 @@
     score = 0;
     gameOver = false;
     paused = false;
+    running = false;
+    pipeCount = 0;
     accInterval = 0;
     lastTS = 0;
     $score.textContent = score;
@@ -95,17 +102,34 @@
     requestAnimationFrame(frame);
   }
 
-  // ✅ 新增：重开（重置并立即开始）
+  // 重开（重置并立即开始）
   function restartGame(){
+    // 更稳：先清状态，再 reset，再 start
+    running = false;
+    paused = false;
+    gameOver = false;
     reset();
     start();
   }
 
+  // 当前难度下应使用的 gap
+  function currentGap(){
+    if (pipeCount < EASY_COUNT){
+      return rand(GAP_START_MIN, GAP_START_MAX);
+    }
+    // 在 RAMP_COUNT 根内线性过渡到最终难度
+    const t = Math.min(1, (pipeCount - EASY_COUNT) / RAMP_COUNT);
+    const curMin = Math.round(lerp(GAP_START_MIN, PIPE_GAP_MIN, t));
+    const curMax = Math.round(lerp(GAP_START_MAX, PIPE_GAP_MAX, t));
+    return rand(curMin, curMax);
+  }
+
   function spawnPipe(){
-    const gap = rand(PIPE_GAP_MIN, PIPE_GAP_MAX);
+    const gap = currentGap();
     const margin = 40;
-    const topH = rand(margin, H - margin - gap);
+    const topH = rand(margin, Math.max(margin, H - margin - gap));
     pipes.push({ x: W + PIPE_W, topH, gap, passed:false });
+    pipeCount++;
   }
 
   function update(dt){
@@ -264,6 +288,7 @@
     return ax < bx+bw && ax+aw > bx && ay < by+bh && ay+ah > by;
   }
   function rand(a,b){ return (a + Math.random()*(b-a))|0; }
+  function lerp(a,b,t){ return a + (b-a)*t; }
   function perf(){ return (performance.now()/180); }
 
   // --- 控制 ---
@@ -275,6 +300,7 @@
       localStorage.setItem(BEST_KEY, String(best));
       $best.textContent = best;
     }
+    draw();
   }
   function togglePause(){
     if (!running || gameOver) return;
@@ -298,11 +324,13 @@
   window.addEventListener('keydown', (e)=>{
     if (e.code === 'Space') { e.preventDefault(); jump(); }
     if (e.key.toLowerCase() === 'p') togglePause();
-    if (e.key.toLowerCase() === 'r') restartGame(); // ✅ R 直接重开
+    if (e.key.toLowerCase() === 'r') restartGame();
   });
-  $start.onclick = start;
-  $pause.onclick = togglePause;
-  $restart.onclick = restartGame; // ✅ 按钮直接重开
+
+  // 按钮事件（更稳：用 addEventListener，并阻止默认）
+  $start.addEventListener('click', (e)=>{ e.preventDefault(); start(); });
+  $pause.addEventListener('click', (e)=>{ e.preventDefault(); togglePause(); });
+  $restart.addEventListener('click', (e)=>{ e.preventDefault(); restartGame(); });
 
   // 初始渲染
   reset(); draw();
