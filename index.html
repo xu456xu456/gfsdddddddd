@@ -1,12 +1,11 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width,initial-scale=1" name="viewport"/>
 <meta content="index,follow" name="robots"/>
 <title>GoToolOnline</title>
-<link href="data:image/svg+xml,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'&gt;&lt;text x='6' y='52' font-size='48'&gt;🛠️&lt;/text&gt;&lt;/svg&gt;'" rel="icon"/>
+<link href="data:image/svg+xml,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'&gt;&lt;text x='6' y='52' font-size='48'&gt;🛠️&lt;/text&gt;&lt;/svg&gt;" rel="icon"/>
 <!-- 基础 OG（多语言文案由脚本覆盖） -->
 <meta content="website" property="og:type"/>
 <meta content="GoToolOnline" property="og:site_name"/>
@@ -28,10 +27,19 @@
     .logo{display:flex;gap:10px;align-items:center;text-decoration:none;color:var(--fg);font-weight:800;font-size:24px}
 
     /* Language dropdown button + panel */
-    .lang-trigger{margin-left:auto;display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:999px;background:linear-gradient(180deg,#2a78ff,#0050d4);color:#fff;border:none;font-weight:800;letter-spacing:.2px;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+    .lang-trigger{
+      margin-left:auto;display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:999px;
+      background:linear-gradient(180deg,#2a78ff,#0050d4);color:#fff;border:none;font-weight:800;letter-spacing:.2px;cursor:pointer;
+      box-shadow:0 8px 24px rgba(0,0,0,.25);
+      position:relative; z-index:3201; /* 确保按钮可点 */
+    }
     .lang-trigger:hover{filter:brightness(1.06)}
     .lang-trigger:focus{outline:2px solid #4fb3ff; outline-offset:2px}
-    .lang-panel{position:fixed; top:64px; right:18px; z-index:1200;background:#0f1830; border:1px solid #1a2843; border-radius:16px;padding:14px; display:none; width:min(420px, calc(100vw - 24px));box-shadow:0 20px 60px rgba(0,0,0,.45)}
+    .lang-panel{
+      position:fixed; top:64px; right:18px; z-index:3200; /* 提升层级，压过彩蛋 */
+      background:#0f1830; border:1px solid #1a2843; border-radius:16px;padding:14px; display:none;
+      width:min(420px, calc(100vw - 24px));box-shadow:0 20px 60px rgba(0,0,0,.45)
+    }
     .lang-panel.open{ display:block }
     .lang-panel h3{margin:0 0 10px; font-size:16px; color:#cfe5ff}
     .lang-grid{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px }
@@ -65,9 +73,12 @@
     html[dir="rtl"] body{direction:rtl}
 
     /* Egg banner bigger, centered, mobile-friendly */
-    .egg-banner{position:fixed;top:0;left:0;right:0;display:none;background:#d82a2a;color:#fff;border-bottom:1px solid #9b1515;z-index:2000}
+    .egg-banner{
+      position:fixed;top:0;left:0;right:0;display:none;background:#d82a2a;color:#fff;border-bottom:1px solid #9b1515;z-index:2000;
+      pointer-events:none; /* 不拦截点击，避免挡住右上角按钮 */
+    }
     .egg-banner .inner{max-width:1200px;margin:0 auto;padding:calc(10px + env(safe-area-inset-top)) 56px 12px 16px;font-weight:800;letter-spacing:.3px;position:relative;text-align:center;font-size:clamp(16px,2.8vw,28px);line-height:1.35}
-    .egg-banner .close{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:transparent;border:none;color:#fff;font-size:28px;cursor:pointer;line-height:1;padding:6px}
+    .egg-banner .close{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:transparent;border:none;color:#fff;font-size:28px;cursor:pointer;line-height:1;padding:6px;pointer-events:auto}
     @media (max-width:520px){.egg-banner .inner{padding:calc(8px + env(safe-area-inset-top)) 52px 10px 10px}}
   </style>
 </head>
@@ -245,19 +256,32 @@
       const LABELS = {en:'Language', ph:'Wika', id:'Bahasa', vi:'Ngôn ngữ', bn:'ভাষা', ng:'Language', sw:'Lugha', ar:'اللغة', zh:'语言'};
 
       if (bar) {
+        const makeHref = (code)=>{
+          const url = new URL(location.href);
+          url.searchParams.set('lang', code);  // 以 URL 参数为准
+          return url.toString();
+        };
+
         LANGS.forEach(code=>{
           const a=document.createElement('a');
           a.textContent=NAMES[code];
+          a.href = makeHref(code);             // 渐进增强：即使 JS 失效也能切换
           if(code===lang) a.className='active';
-          a.addEventListener('click', ()=>{
+          a.addEventListener('click', (e)=>{
+            e.preventDefault();                // 避免拉长历史
             document.cookie = `lang=${code};path=/;max-age=31536000`;
-            location.reload();
+            location.href = a.href;            // 直接跳转到 ?lang=code，100% 生效
           });
           bar.appendChild(a);
         });
       }
 
-      function openLang(open){ if(!panel||!btn) return; panel.classList.toggle('open', !!open); btn.setAttribute('aria-expanded', !!open); }
+      function openLang(open){
+        if(!panel||!btn) return;
+        if(open && typeof hideEgg === 'function') hideEgg(); // 打开面板时顺手关彩蛋
+        panel.classList.toggle('open', !!open);
+        btn.setAttribute('aria-expanded', !!open);
+      }
       function setBtnLabel(){ if(!btn||!title) return; btn.textContent = '🌐 ' + (NAMES[lang]||'Language'); btn.setAttribute('aria-label', LABELS[lang]||'Language'); title.textContent = (LABELS[lang]||'Language'); }
       setBtnLabel();
       if (btn) btn.addEventListener('click', (e)=>{ e.stopPropagation(); openLang(!panel.classList.contains('open')); });
