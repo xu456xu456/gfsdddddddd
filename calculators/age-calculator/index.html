@@ -92,7 +92,7 @@
     </div>
   </main>
 
-  <!-- i18n core (最小通用骨架) -->
+  <!-- i18n core -->
   <script>
   (function(){
     const LANGS = ['en','zh','ph','id','vi','bn','ng','sw','ar'];
@@ -112,7 +112,6 @@
       else if (cookieLang && LANGS.includes(cookieLang)) lang = cookieLang;
       else lang = MAP[nav] || MAP[nav.split('-')[0]] || 'en';
       setCookie('lang', lang);
-      // dir + lang attr
       document.documentElement.lang = (lang==='ph'?'tl':(lang==='ng'?'en':lang));
       document.documentElement.dir = (lang==='ar'?'rtl':'ltr');
       return lang;
@@ -139,11 +138,9 @@
       document.querySelectorAll('[data-i18n]').forEach(el=>{
         const v = get(D, el.getAttribute('data-i18n'));
         if (v==null) return;
-        // 允许包含 <strong> 之类：intro 里会用到
         if (/<[a-z][\s\S]*>/i.test(v)) el.innerHTML = v;
         else el.textContent = v;
       });
-      // meta
       if (get(D,'meta.title')) document.title = get(D,'meta.title');
       const desc = document.querySelector('meta[name="description"]');
       if (desc && get(D,'meta.desc')) desc.setAttribute('content', get(D,'meta.desc'));
@@ -159,7 +156,7 @@
       });
     }
 
-    // 字典（英文基准 + 各语言覆盖；数字一律用 0-9）
+    // ===== dictionary =====
     const EN = {
       meta: { title: "Age Calculator — Exact years, months, days | GoToolOnline",
               desc: "Free age calculator: exact years, months, and days between two dates (end date optional). Mobile-friendly." },
@@ -239,8 +236,7 @@
     };
 
     const NG = {
-      ui:{ back:"← Back to Home", lang:"Language" },
-      // other strings fall back to EN
+      ui:{ back:"← Back to Home", lang:"Language" }
     };
 
     const SW = {
@@ -267,13 +263,13 @@
 
     const MAP = { en:EN, zh:ZH, ph:PH, id:ID, vi:VI, bn:BN, ng:NG, sw:SW, ar:AR };
 
-    // 初始化
+    // init
     const lang = pickLang();
     const D = merge(EN, MAP[lang]||{});
     applyI18N(D);
     keepLangInLinks(lang);
 
-    // 语言选择 UI
+    // language UI
     const panel = document.getElementById('langPanel');
     const btn = document.getElementById('langBtn');
     const grid = document.getElementById('langGrid');
@@ -286,7 +282,7 @@
           const u = new URL(location.href);
           u.searchParams.set('lang', code);
           setCookie('lang', code);
-          location.href = u.toString(); // 刷新一次，最稳
+          location.href = u.toString();
         });
         grid.appendChild(b);
       });
@@ -295,12 +291,32 @@
     if (btn) btn.addEventListener('click', (e)=>{ e.stopPropagation(); openLang(!panel.classList.contains('open')); });
     document.addEventListener('click', (e)=>{ if(panel && panel.classList.contains('open')){ const within = panel.contains(e.target) || (btn && btn.contains(e.target)); if(!within) openLang(false); } });
 
-    // 导出给下面格式化函数用
+    // expose lang
     window.__PAGE_LANG__ = lang;
+
+    // === force <input type="date"> locale & keep Latin digits ===
+    const INPUT_LOCALE = {
+      en: 'en-US',
+      zh: 'zh-CN',
+      ph: 'tl-PH',
+      id: 'id-ID',
+      vi: 'vi-VN',
+      bn: 'bn-BD-u-nu-latn',
+      ng: 'en-NG',
+      sw: 'sw',
+      ar: 'ar-u-nu-latn'
+    };
+    (function applyDateInputLocale(selected){
+      var locale = INPUT_LOCALE[selected] || 'en-US';
+      document.querySelectorAll('input[type="date"]').forEach(function(el){
+        el.setAttribute('lang', locale);
+        if (selected === 'ar') el.setAttribute('dir','rtl'); else el.removeAttribute('dir');
+      });
+    })(window.__PAGE_LANG__ || 'en');
   })();
   </script>
 
-  <!-- 业务逻辑 -->
+  <!-- logic -->
   <script>
   (function(){
     function parseDate(v){
@@ -309,24 +325,20 @@
       if(t.length!==3) return null;
       return new Date(t[0], t[1]-1, t[2]);
     }
-
     function diffYMD(a, b){
       if(b < a){ var tmp=a; a=b; b=tmp; }
       var y = b.getFullYear() - a.getFullYear();
       var m = b.getMonth() - a.getMonth();
       var d = b.getDate() - a.getDate();
-
       if (d < 0){
-        var pm = new Date(b.getFullYear(), b.getMonth(), 0); // last day prev month
+        var pm = new Date(b.getFullYear(), b.getMonth(), 0);
         d += pm.getDate();
         m -= 1;
       }
       if (m < 0){ m += 12; y -= 1; }
       return {y:y, m:m, d:d};
     }
-
     function fmtYMD(lang, o){
-      // 始终用 0-9 数字
       switch(lang){
         case 'zh': return o.y+' 年 '+o.m+' 个月 '+o.d+' 天';
         case 'ar': return o.y+' سنة، '+o.m+' شهر، '+o.d+' يوم';
@@ -340,14 +352,11 @@
         default:   return o.y+' years, '+o.m+' months, '+o.d+' days';
       }
     }
-
     var $ = function(id){ return document.getElementById(id); };
     function t(key){
-      // 简单取 data-i18n 的当前文本
       var el = document.querySelector('[data-i18n="'+key+'"]');
       return el ? (el.textContent || el.innerText || '') : '';
     }
-
     $('calc').addEventListener('click', function(){
       var dob = parseDate($('dob').value);
       var end = parseDate($('end').value) || new Date();
@@ -367,7 +376,7 @@
   })();
   </script>
 
-  <!-- 回首页（保留 ?lang） -->
+  <!-- back to home (preserve ?lang) -->
   <script>
   (function(){
     var path = location.pathname.replace(/\/+$/,''); 
