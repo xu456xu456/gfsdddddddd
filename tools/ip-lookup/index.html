@@ -4,7 +4,7 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>IPv4/IPv6 查询 | GoToolOnline</title>
-<meta name="description" content="同时显示你的公网 IPv4 和 IPv6，并附地理归属（国家/地区/城市/运营商）。多供应商 + JSONP 兜底（含中国可访问源），尽量避免 CORS。"/>
+<meta name="description" content="同时显示你的公网 IPv4 和 IPv6，并附地理归属（国家/地区/城市/运营商）。多供应商 + 并行兜底，尽量避免请求失败。"/>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><text x='6' y='52' font-size='48'>🛠️</text></svg>"/>
 <style>
 :root{--bg:#0a0f1e;--card:#0f1830;--muted:#9fb0c3;--fg:#eaf3ff;--acc:#4fb3ff}
@@ -13,12 +13,12 @@ body{margin:0;font:16px/1.6 system-ui,-apple-system,Segoe UI,Roboto,"PingFang SC
 main,header,footer{max-width:980px;margin:0 auto;padding:0 18px}
 header{display:flex;gap:12px;align-items:center;margin:22px auto 8px}
 header .logo{display:flex;gap:10px;align-items:center;text-decoration:none;color:var(--fg);font-weight:800;font-size:22px}
-.lang{margin-left:auto;padding:10px 12px;background:#0f1a2f;border:1px solid #24365b;border-radius:10px;color:#eaf3ff;font-size:14px}
+.lang{margin-left:auto;padding:10px 12px;background:#0f1a2f;border:1px solid #24365b;border-radius:10px;color:var(--fg);font-size:14px}
 .card{background:var(--card);border:1px solid #1a2843;border-radius:18px;padding:18px;margin:16px 0}
 h1{margin:6px 0 8px;font-size:28px}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 button{padding:12px 14px;border-radius:12px;border:1px solid #24365b;background:linear-gradient(180deg,#2a78ff,#0050d4);color:#fff;font-weight:700;cursor:pointer}
-button.secondary{background:#0f1a2f;color:#eaf3ff}
+button.secondary{background:#0f1a2f;color:var(--fg)}
 button:hover{filter:brightness(1.06)}
 .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:10px}
 @media (max-width:800px){ .grid2{grid-template-columns:1fr} }
@@ -29,6 +29,7 @@ button:hover{filter:brightness(1.06)}
 .copy{background:#0f1a2f;border:1px solid #24365b}
 footer{color:var(--muted);font-size:14px;margin:36px auto 28px}
 hr{border:none;height:1px;background:#223357;margin:10px 0}
+.flag{font-size:1.1rem;margin-right:.35rem}
 </style>
 </head>
 <body>
@@ -66,7 +67,7 @@ hr{border:none;height:1px;background:#223357;margin:10px 0}
           <span id="ip4" class="addr">—</span>
         </div>
         <hr/>
-        <div class="small" id="geo4">—</div>
+        <div class="small" id="geo4"><span id="flag4" class="flag">🏳️</span><span id="geo4txt">—</span></div>
       </div>
 
       <div class="panel">
@@ -78,7 +79,7 @@ hr{border:none;height:1px;background:#223357;margin:10px 0}
           <span id="ip6" class="addr">—</span>
         </div>
         <hr/>
-        <div class="small" id="geo6">—</div>
+        <div class="small" id="geo6"><span id="flag6" class="flag">🏳️</span><span id="geo6txt">—</span></div>
       </div>
     </div>
 
@@ -96,72 +97,94 @@ hr{border:none;height:1px;background:#223357;margin:10px 0}
 <footer>© 2025 GoToolOnline.com</footer>
 
 <script>
-// ===== single $ helper =====
+/* ===================== 基础工具 ===================== */
 const $ = (s)=>document.querySelector(s);
+const TIMEOUT = 3500;
+const IPV4_RE=/^(?:(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)\\.){3}(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)$/;
+const IPV6_RE=/^[0-9a-fA-F:]+$/;
+const CFG = {
+  ipinfoToken: "630a161186a234", // ✅ 你的 token
+  ipapiKey: ""                   // 可留空；有的话更稳
+};
 
-// ===== i18n =====
+function abortableFetchJSON(url, ms=TIMEOUT){
+  const ctrl=new AbortController(); const t=setTimeout(()=>ctrl.abort(), ms);
+  return fetch(url, {signal:ctrl.signal, cache:'no-store'})
+    .then(r=>{ if(!r.ok) throw new Error('http '+r.status); return r.json(); })
+    .finally(()=>clearTimeout(t));
+}
+const timeout = (ms)=>new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms));
+const any = (arr)=>Promise.any(arr);
+
+/* 国旗 emoji */
+function ccToFlag(cc){
+  if(!cc) return '🏳️';
+  return cc.toUpperCase().replace(/./g,c=>String.fromCodePoint(127397+c.charCodeAt()));
+}
+
+/* ===================== 语言 ===================== */
 const I18N = {
   zh:{title:"IPv4/IPv6 查询 | GoToolOnline",desc:"同时显示你的公网 IPv4 和 IPv6，并附地理归属（国家/地区/城市/运营商）。",h1:"IPv4 / IPv6 查询",
       btnBoth:"显示我的 IP（v4+v6）",btnCopy4:"复制 IPv4",btnCopy6:"复制 IPv6",btnLan:"尝试获取内网 IPv4（实验）",
       v4:"公网 IPv4", v6:"公网 IPv6", lan:"内网 IPv4（实验）",
-      copied:"已复制！", checking:"查询中…", no4:"未获取到公网 IPv4", no6:"未获取到公网 IPv6",
-      geo:"归属地", isp:"网络/运营商", note:"如果你的网络没有公网 IPv4 或 IPv6，则对应一侧可能拿不到。地理信息为 IP 大致归属，仅供参考。",
+      copied:"已复制！", checking:"查询中…", no4:"未获取到公网 IPv4（移动网络/CGNAT 常见）", no6:"未获取到公网 IPv6",
+      note:"如果你的网络没有公网 IPv4 或 IPv6，则对应一侧可能拿不到。地理信息为 IP 大致归属，仅供参考。",
       lanTip:"浏览器通常隐藏内网 IP；此为 WebRTC 试探，成功率不保证。", lanTrying:"尝试中…", lanFail:"未获取到（浏览器已屏蔽）"
   },
   en:{title:"IPv4/IPv6 Lookup | GoToolOnline",desc:"Show your public IPv4 and IPv6 with geolocation (country/region/city/ISP).",h1:"IPv4 / IPv6 Lookup",
       btnBoth:"Show My IPs (v4+v6)",btnCopy4:"Copy IPv4",btnCopy6:"Copy IPv6",btnLan:"Try Local IPv4 (Experimental)",
       v4:"Public IPv4", v6:"Public IPv6", lan:"Local IPv4 (Experimental)",
-      copied:"Copied!", checking:"Checking…", no4:"Couldn't get public IPv4", no6:"Couldn't get public IPv6",
-      geo:"Location", isp:"Network/ISP", note:"If your network lacks public IPv4/IPv6, the corresponding side may be empty. Location is approximate.",
+      copied:"Copied!", checking:"Checking…", no4:"No public IPv4 (mobile/CGNAT common)", no6:"No public IPv6",
+      note:"If your network lacks public IPv4/IPv6, the corresponding side may be empty. Location is approximate.",
       lanTip:"Browsers hide local IP; WebRTC probe only.", lanTrying:"Trying…", lanFail:"Not available (blocked by browser)"
   },
   ph:{title:"IPv4/IPv6 Lookup | GoToolOnline",desc:"Ipakita ang public IPv4 at IPv6 at lokasyon (bansa/relo/ISP).",h1:"IPv4 / IPv6 Lookup",
       btnBoth:"Ipakita ang Aking IP (v4+v6)",btnCopy4:"Kopya IPv4",btnCopy6:"Kopya IPv6",btnLan:"Subukan ang Local IPv4 (Experimental)",
       v4:"Public IPv4", v6:"Public IPv6", lan:"Local IPv4 (Experimental)",
       copied:"Nakopya!", checking:"Sinusuri…", no4:"Hindi nakuha ang public IPv4", no6:"Hindi nakuha ang public IPv6",
-      geo:"Lokasyon", isp:"Network/ISP", note:"Kung walang public IPv4/IPv6 sa network mo, puwedeng walang lalabas.", 
+      note:"Kung walang public IPv4/IPv6 sa network mo, puwedeng walang lalabas.", 
       lanTip:"Itinatago ng browser ang local IP; WebRTC lang ito.", lanTrying:"Sinusubukan…", lanFail:"Hindi makuha (hinarang ng browser)"
   },
   id:{title:"Pencari IPv4/IPv6 | GoToolOnline",desc:"Tampilkan IPv4 & IPv6 publik beserta lokasi (negara/wilayah/kota/ISP).",h1:"Pencari IPv4 / IPv6",
       btnBoth:"Tampilkan IP Saya (v4+v6)",btnCopy4:"Salin IPv4",btnCopy6:"Salin IPv6",btnLan:"Coba IPv4 Lokal (Eksperimental)",
       v4:"IPv4 Publik", v6:"IPv6 Publik", lan:"IPv4 Lokal (Eksperimental)",
-      copied:"Disalin!", checking:"Memeriksa…", no4:"Gagal dapat IPv4 publik", no6:"Gagal dapat IPv6 publik",
-      geo:"Lokasi", isp:"Jaringan/ISP", note:"Jika jaringanmu tidak punya IPv4/IPv6 publik, sisi itu bisa kosong.",
+      copied:"Disalin!", checking:"Memeriksa…", no4:"Tidak mendapatkan IPv4 publik (umum pada jaringan seluler/CGNAT)", no6:"Tidak mendapatkan IPv6 publik",
+      note:"Jika jaringanmu tidak punya IPv4/IPv6 publik, sisi itu bisa kosong.",
       lanTip:"Browser menyembunyikan IP lokal; hanya uji WebRTC.", lanTrying:"Mencoba…", lanFail:"Tidak tersedia (diblokir browser)"
   },
   vi:{title:"Tra cứu IPv4/IPv6 | GoToolOnline",desc:"Hiển thị IPv4 & IPv6 công cộng cùng vị trí (quốc gia/vùng/thành phố/ISP).",h1:"Tra cứu IPv4 / IPv6",
       btnBoth:"Hiện IP của tôi (v4+v6)",btnCopy4:"Sao chép IPv4",btnCopy6:"Sao chép IPv6",btnLan:"Thử IPv4 nội bộ (thử nghiệm)",
       v4:"IPv4 công cộng", v6:"IPv6 công cộng", lan:"IPv4 nội bộ (thử nghiệm)",
-      copied:"Đã sao chép!", checking:"Đang kiểm tra…", no4:"Không lấy được IPv4 công cộng", no6:"Không lấy được IPv6 công cộng",
-      geo:"Vị trí", isp:"Mạng/ISP", note:"Nếu mạng không có IPv4/IPv6 công cộng, bên tương ứng có thể trống.",
+      copied:"Đã sao chép!", checking:"Đang kiểm tra…", no4:"Không lấy được IPv4 công khai (mạng di động/CGNAT thường gặp)", no6:"Không lấy được IPv6 công khai",
+      note:"Nếu mạng không có IPv4/IPv6 công cộng, bên tương ứng có thể trống.",
       lanTip:"Trình duyệt ẩn IP nội bộ; chỉ thử WebRTC.", lanTrying:"Đang thử…", lanFail:"Không có (trình duyệt chặn)"
   },
   bn:{title:"IPv4/IPv6 অনুসন্ধান | GoToolOnline",desc:"পাবলিক IPv4/IPv6 এবং অবস্থান (দেশ/অঞ্চল/শহর/ISP) দেখায়।",h1:"IPv4 / IPv6 অনুসন্ধান",
       btnBoth:"আমার IP দেখান (v4+v6)",btnCopy4:"IPv4 কপি",btnCopy6:"IPv6 কপি",btnLan:"লোকাল IPv4 চেষ্টা (পরীক্ষামূলক)",
       v4:"পাবলিক IPv4", v6:"পাবলিক IPv6", lan:"লোকাল IPv4 (পরীক্ষামূলক)",
       copied:"কপি হয়েছে!", checking:"চেক করা হচ্ছে…", no4:"পাবলিক IPv4 পাওয়া যায়নি", no6:"পাবলিক IPv6 পাওয়া যায়নি",
-      geo:"অবস্থান", isp:"নেটওয়ার্ক/ISP", note:"নেটওয়ার্কে IPv4/IPv6 না থাকলে সংশ্লিষ্ট দিক খালি থাকবে।",
+      note:"নেটওয়ার্কে IPv4/IPv6 না থাকলে সংশ্লিষ্ট দিক খালি থাকবে।",
       lanTip:"ব্রাউজার লোকাল IP লুকায়; WebRTC চেষ্টা মাত্র।", lanTrying:"চেষ্টা চলছে…", lanFail:"পাওয়া যায়নি (ব্রাউজার ব্লক)"
   },
   ng:{title:"IPv4/IPv6 Lookup | GoToolOnline",desc:"Show public IPv4/IPv6 and rough location (country/region/city/ISP).",h1:"IPv4 / IPv6 Lookup",
       btnBoth:"Show My IPs (v4+v6)",btnCopy4:"Copy IPv4",btnCopy6:"Copy IPv6",btnLan:"Try Local IPv4 (Experimental)",
       v4:"Public IPv4", v6:"Public IPv6", lan:"Local IPv4 (Experimental)",
-      copied:"Copied!", checking:"Checking…", no4:"No public IPv4", no6:"No public IPv6",
-      geo:"Location", isp:"Network/ISP", note:"If your network lacks IPv4/IPv6, that side may be empty.",
+      copied:"Copied!", checking:"Checking…", no4:"No public IPv4 (mobile/CGNAT common)", no6:"No public IPv6",
+      note:"If your network lacks IPv4/IPv6, that side may be empty.",
       lanTip:"Local IP is hidden; WebRTC probe only.", lanTrying:"Trying…", lanFail:"Not available (blocked)"
   },
   sw:{title:"Utafutaji wa IPv4/IPv6 | GoToolOnline",desc:"Onyesha IPv4/IPv6 ya umma na eneo (nchi/mkoa/jiji/ISP).",h1:"Utafutaji wa IPv4 / IPv6",
       btnBoth:"Onyesha IP Zangu (v4+v6)",btnCopy4:"Nakili IPv4",btnCopy6:"Nakili IPv6",btnLan:"Jaribu IPv4 ya Ndani (Majaribio)",
       v4:"IPv4 ya Umma", v6:"IPv6 ya Umma", lan:"IPv4 ya Ndani (Majaribio)",
       copied:"Imenakiliwa!", checking:"Inakaguliwa…", no4:"Hakuna IPv4 ya umma", no6:"Hakuna IPv6 ya umma",
-      geo:"Eneo", isp:"Mtandao/ISP", note:"Kama mtandao hauna IPv4/IPv6, upande huo unaweza kuwa mtupu.",
+      note:"Kama mtandao hauna IPv4/IPv6, upande huo unaweza kuwa mtupu.",
       lanTip:"Kivinjari huficha IP ya ndani; jaribio la WebRTC pekee.", lanTrying:"Inajaribu…", lanFail:"Haipatikani (imezuiwa)"
   },
   ar:{title:"بحث IPv4/IPv6 | GoToolOnline",desc:"اعرض IPv4/IPv6 العام والموقع (بلد/منطقة/مدينة/مزود).",h1:"بحث IPv4 / IPv6",
       btnBoth:"اعرض عناويني (v4+v6)",btnCopy4:"انسخ IPv4",btnCopy6:"انسخ IPv6",btnLan:"محاولة IPv4 المحلي (تجريبي)",
       v4:"IPv4 العام", v6:"IPv6 العام", lan:"IPv4 المحلي (تجريبي)",
-      copied:"تم النسخ!", checking:"جارٍ الفحص…", no4:"تعذر الحصول على IPv4 العام", no6:"تعذر الحصول على IPv6 العام",
-      geo:"الموقع", isp:"الشبكة/المزود", note:"إذا كان الشبكة لا تملك IPv4/IPv6 عام، فقد يكون الجانب المقابل فارغًا.",
+      copied:"تم النسخ!", checking:"جارٍ الفحص…", no4:"تعذر الحصول على IPv4 العام (CGNAT/شبكات الجوال)", no6:"تعذر الحصول على IPv6 العام",
+      note:"إذا كان الشبكة لا تملك IPv4/IPv6 عام، فقد يكون الجانب المقابل فارغًا.",
       lanTip:"المتصفح يخفي IP المحلي؛ مجرد محاولة WebRTC.", lanTrying:"جارٍ المحاولة…", lanFail:"غير متاح (محجوب)"
   }
 };
@@ -172,18 +195,12 @@ function mapHtmlLang(lang){
   if (lang === 'ng') return 'en-NG';
   return lang;
 }
-
-const TIMEOUT=7000;
-const IPV4_RE=/^(?:(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)\\.){3}(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)$/;
-const IPV6_RE=/^[0-9a-fA-F:]+$/;
-
-// i18n apply/boot
 function tkey(k){ const lang=$('#lang').value; return (I18N[lang]||I18N.zh)[k]||I18N.zh[k]||k; }
 function setText(id, txt){ const el=document.getElementById(id); if(el) el.textContent=txt; }
-
 function applyLang(lang){
   const d=I18N[lang]||I18N.zh;
-  document.title=d.title; const md=document.querySelector('meta[name="description"]'); if(md) md.setAttribute('content', d.desc);
+  document.title=d.title;
+  const md=document.querySelector('meta[name="description"]'); if(md) md.setAttribute('content', d.desc);
   document.documentElement.lang=mapHtmlLang(lang);
   document.documentElement.dir=(lang==='ar')?'rtl':'ltr';
   $('#lang').value=lang;
@@ -195,131 +212,156 @@ function applyLang(lang){
   const qs=new URLSearchParams(location.search); qs.set('lang', lang);
   history.replaceState({},'',location.pathname+'?'+qs.toString());
 }
-
 function bootLang(){
   const qs=new URLSearchParams(location.search);
   const fromQS=qs.get('lang'); const fromLS=localStorage.getItem('lang');
   applyLang(I18N[fromQS]?fromQS:(I18N[fromLS]?fromLS:'zh'));
 }
 
-// Fetch helpers
-function fetchJSON(url){
-  const ctrl=new AbortController(); const t=setTimeout(()=>ctrl.abort(), TIMEOUT);
-  return fetch(url,{signal:ctrl.signal,cache:'no-store'})
-    .then(r=>{ if(!r.ok) throw new Error('http '+r.status); return r.json(); })
-    .finally(()=>clearTimeout(t));
-}
-function jsonp(url, timeout=TIMEOUT){
-  return new Promise((resolve, reject)=>{
-    const cb='__jp'+Math.random().toString(36).slice(2);
-    const clean=()=>{ try{delete window[cb];}catch(e){} if(s.parentNode) s.parentNode.removeChild(s); if(timer) clearTimeout(timer); };
-    window[cb]=(data)=>{ clean(); resolve(data); };
+/* ===================== IPv4 / IPv6 获取 ===================== */
+/* v4：多源并行（含国内可用源为兜底） */
+async function getIPv4(){
+  // 国内兜底（JSONP）
+  const sohu = new Promise((resolve)=>{
+    const prev=window.returnCitySN;
     const s=document.createElement('script');
-    s.src = url.replace(/callback=[^&]*/,'').replace(/\?$/,'') + (url.includes('?')?'&':'?') + 'callback=' + cb;
-    s.onerror=()=>{ clean(); reject(new Error('jsonp error')); };
-    document.head.appendChild(s);
-    const timer=setTimeout(()=>{ clean(); reject(new Error('jsonp timeout')); }, timeout);
-  });
-}
-function loadSohuCity(timeout=TIMEOUT){
-  return new Promise((resolve)=>{
-    const prev = window.returnCitySN;
-    const s=document.createElement('script');
-    let done=false;
-    const clean=()=>{ if(s.parentNode) s.parentNode.removeChild(s); };
     s.src='https://pv.sohu.com/cityjson?ie=utf-8';
-    s.onload=()=>{
-      done=true;
+    s.onload=()=>{ 
       try{
         const d=window.returnCitySN;
-        if (prev===undefined) { try{ delete window.returnCitySN; }catch(e){} }
-        else { window.returnCitySN = prev; }
-        resolve(d||null);
-      }catch(e){ resolve(null); }
-      clean();
+        if(prev===undefined){ try{delete window.returnCitySN;}catch(e){} } else window.returnCitySN=prev;
+        const ip=d&&d.cip?String(d.cip):'';
+        if(IPV4_RE.test(ip)) resolve({ip, hint:d.cname||''});
+      }catch(e){/* ignore */}
     };
-    s.onerror=()=>{ if(done) return; clean(); resolve(null); };
+    s.onerror=()=>{};
     document.head.appendChild(s);
-    setTimeout(()=>{ if(done) return; clean(); resolve(null); }, timeout);
+    setTimeout(()=>resolve(null), TIMEOUT);
   });
+
+  const reqs = [
+    abortableFetchJSON('https://api4.ipify.org?format=json').then(j=>j&&IPV4_RE.test(j.ip)?{ip:j.ip}:null),
+    abortableFetchJSON('https://ipv4.seeip.org/json').then(j=>j&&IPV4_RE.test(j.ip)?{ip:j.ip}:null),
+    abortableFetchJSON('https://v4.ident.me/.json').then(j=>j&&IPV4_RE.test(j.address)?{ip:j.address}:null),
+    sohu
+  ];
+
+  try{
+    const r = await Promise.any(reqs.map(p=>p.then(x=>{ if(!x) throw 0; return x; })));
+    if(r && r.ip) return r;
+    throw new Error('no ipv4');
+  }catch{ throw new Error('no ipv4'); }
 }
 
-// IPv4 chain (CN-friendly)
-async function getIPv4(){
-  try{ const d=await loadSohuCity(); const ip=d&&d.cip?String(d.cip):''; if(IPV4_RE.test(ip)) return {ip, hint:d.cname||''}; }catch(e){}
-  try{ const d=await fetchJSON('https://api4.ipify.org?format=json'); const ip=d&&d.ip?String(d.ip):''; if(IPV4_RE.test(ip)) return {ip}; }catch(e){}
-  try{ const d=await jsonp('https://api4.ipify.org?format=jsonp'); const ip=d&&d.ip?String(d.ip):''; if(IPV4_RE.test(ip)) return {ip}; }catch(e){}
-  try{ const d=await jsonp('https://ip-api.com/json/?fields=status,message,query'); const ip=d&&d.query?String(d.query):''; if(d&&d.status==='success'&&IPV4_RE.test(ip)) return {ip}; }catch(e){}
-  try{ const d=await jsonp('https://ipv4.ipapi.co/json/'); const ip=d&&d.ip?String(d.ip):''; if(IPV4_RE.test(ip)) return {ip}; }catch(e){}
-  try{ const d=await jsonp('https://whois.pconline.com.cn/ipJson.jsp?json=true'); const ip=d&&d.ip?String(d.ip):''; if(IPV4_RE.test(ip)) return {ip, hint:d.addr||''}; }catch(e){}
-  throw new Error('no ipv4');
-}
-
-// IPv6 chain
+/* v6：多源并行 */
 async function getIPv6(){
-  try{ const d=await fetchJSON('https://api6.ipify.org?format=json'); const ip=d&&d.ip?String(d.ip):''; if(IPV6_RE.test(ip) && ip.includes(':')) return {ip}; }catch(e){}
-  try{ const d=await jsonp('https://api6.ipify.org?format=jsonp'); const ip=d&&d.ip?String(d.ip):''; if(IPV6_RE.test(ip) && ip.includes(':')) return {ip}; }catch(e){}
-  try{ const d=await jsonp('https://ip-api.com/json/?fields=status,message,query'); const ip=d&&d.query?String(d.query):''; if(d&&d.status==='success'&&IPV6_RE.test(ip) && ip.includes(':')) return {ip}; }catch(e){}
-  try{ const d=await fetchJSON('https://api64.ipify.org?format=json'); const ip=d&&d.ip?String(d.ip):''; if(IPV6_RE.test(ip) && ip.includes(':')) return {ip}; }catch(e){}
-  throw new Error('no ipv6');
+  const reqs = [
+    abortableFetchJSON('https://api64.ipify.org?format=json').then(j=>j&&j.ip&&j.ip.includes(':')?{ip:j.ip}:null),
+    abortableFetchJSON('https://api6.ipify.org?format=json').then(j=>j&&j.ip&&j.ip.includes(':')?{ip:j.ip}:null),
+    abortableFetchJSON('https://ipv6.seeip.org/json').then(j=>j&&j.ip&&j.ip.includes(':')?{ip:j.ip}:null),
+  ];
+  try{
+    const r = await Promise.any(reqs.map(p=>p.then(x=>{ if(!x) throw 0; return x; })));
+    if(r && r.ip) return r;
+    throw new Error('no ipv6');
+  }catch{ throw new Error('no ipv6'); }
 }
 
-// Geo by IP
+/* 地理信息：优先 ipinfo(token) → ipapi → ip-api(JSONP) */
 async function geoByIP(ip){
+  if(!ip) return null;
+
+  const ipinfoUrl = CFG.ipinfoToken
+      ? `https://api.ipinfo.io/${encodeURIComponent(ip)}?token=${encodeURIComponent(CFG.ipinfoToken)}`
+      : `https://api.ipinfo.io/${encodeURIComponent(ip)}`;
+  const ipinfo = abortableFetchJSON(ipinfoUrl).then(j=>{
+    if(!j) throw 0;
+    return { cc:j.country||'', city:j.city||'', region:j.region||'', org:j.org||'' };
+  });
+
+  const ipapiUrl = CFG.ipapiKey
+      ? `https://ipapi.co/${encodeURIComponent(ip)}/json/?key=${encodeURIComponent(CFG.ipapiKey)}`
+      : `https://ipapi.co/${encodeURIComponent(ip)}/json/`;
+  const ipapi = abortableFetchJSON(ipapiUrl).then(j=>{
+    if(!j) throw 0;
+    return { cc:j.country||j.country_code||'', city:j.city||'', region:j.region||'', org:j.org||j.org_name||'' };
+  });
+
+  const ipapijsonp = new Promise((resolve)=>{
+    const cb='__jp'+Math.random().toString(36).slice(2);
+    window[cb]=(d)=>{ try{ delete window[cb]; }catch(e){} resolve(d); };
+    const s=document.createElement('script');
+    s.src=`https://ip-api.com/json/${encodeURIComponent(ip)}?fields=status,country,countryCode,regionName,city,isp&callback=${cb}`;
+    s.onerror=()=>resolve(null);
+    document.head.appendChild(s);
+    setTimeout(()=>resolve(null), TIMEOUT);
+  }).then(d=>{
+    if(d && d.status==='success'){
+      return { cc:d.countryCode||'', city:d.city||'', region:d.regionName||'', org:d.isp||'' };
+    }
+    throw 0;
+  });
+
   try{
-    const f='status,country,regionName,city,isp';
-    const d=await jsonp('https://ip-api.com/json/'+encodeURIComponent(ip)+'?fields='+encodeURIComponent(f));
-    if(d&&d.status==='success') return {country:d.country||'',region:d.regionName||'',city:d.city||'',org:d.isp||''};
-  }catch(e){}
-  try{
-    const d=await jsonp('https://ipapi.co/'+encodeURIComponent(ip)+'/json/');
-    return {country:d.country_name||'',region:d.region||'',city:d.city||'',org:d.org||d.org_name||''};
-  }catch(e){}
-  return null;
+    return await Promise.any([ipinfo, ipapi, ipapijsonp]);
+  }catch{
+    return null;
+  }
 }
 
-// Actions
+/* ===================== 交互逻辑 ===================== */
+function t(k){ return tkey(k); }
+
 async function showBoth(){
   // v4
-  setText('ip4', tkey('checking')); setText('geo4','—');
+  setText('ip4', t('checking')); setText('geo4txt','—'); setText('flag4','🏳️');
   try{
     const r4=await getIPv4(); setText('ip4', r4.ip);
     try{
       const g4=await geoByIP(r4.ip);
-      if(g4){ const pieces=[g4.country,g4.region,g4.city].filter(Boolean); setText('geo4',(pieces.length?pieces.join(', '):'—') + (g4.org?(' · '+g4.org):'')); }
-      else if(r4.hint){ setText('geo4', r4.hint); }
-    }catch(e){}
-  }catch(e){ setText('ip4', tkey('no4')); }
+      if(g4){
+        const parts=[g4.city, g4.region, g4.cc].filter(Boolean);
+        setText('geo4txt', (parts.length?parts.join(', '):'—') + (g4.org?(' · '+g4.org):''));
+        setText('flag4', ccToFlag(g4.cc));
+      }else if(r4.hint){
+        setText('geo4txt', r4.hint);
+      }
+    }catch{}
+  }catch{ setText('ip4', t('no4')); }
 
   // v6
-  setText('ip6', tkey('checking')); setText('geo6','—');
+  setText('ip6', t('checking')); setText('geo6txt','—'); setText('flag6','🏳️');
   try{
     const r6=await getIPv6(); setText('ip6', r6.ip);
     try{
       const g6=await geoByIP(r6.ip);
-      if(g6){ const pieces=[g6.country,g6.region,g6.city].filter(Boolean); setText('geo6',(pieces.length?pieces.join(', '):'—') + (g6.org?(' · '+g6.org):'')); }
-    }catch(e){}
-  }catch(e){ setText('ip6', tkey('no6')); }
+      if(g6){
+        const parts=[g6.city, g6.region, g6.cc].filter(Boolean);
+        setText('geo6txt', (parts.length?parts.join(', '):'—') + (g6.org?(' · '+g6.org):''));
+        setText('flag6', ccToFlag(g6.cc));
+      }
+    }catch{}
+  }catch{ setText('ip6', t('no6')); }
 }
 
 function copyText(idTip, ipStr, isV6=false){
-  const v = ipStr.trim();
+  const v = (ipStr||'').trim();
   if(!v) return;
   if(!isV6 && !IPV4_RE.test(v)) return;
   if(isV6 && !(IPV6_RE.test(v) && v.includes(':'))) return;
   navigator.clipboard?.writeText(v).then(()=>{
-    const el=$(idTip); el.textContent=tkey('copied'); el.style.display='';
+    const el=$(idTip); el.textContent=t('copied'); el.style.display='';
     setTimeout(()=>el.style.display='none', 1200);
   }).catch(()=>{});
 }
 
-// Local IPv4 via WebRTC
+// Local IPv4 via WebRTC（成功率低，按你的原设计保留）
 async function detectLAN(){
-  setText('lan', tkey('lanTrying'));
+  setText('lan', t('lanTrying'));
   try{
     const pc=new RTCPeerConnection({iceServers:[]}); pc.createDataChannel('x');
     const found=new Set(); const stop=()=>{ try{pc.close();}catch(e){} };
-    const timer=setTimeout(()=>{ stop(); if($('#lan').textContent===tkey('lanTrying')) setText('lan', tkey('lanFail')); }, 7000);
+    const timer=setTimeout(()=>{ stop(); if($('#lan').textContent===t('lanTrying')) setText('lan', t('lanFail')); }, 7000);
     pc.onicecandidate=(e)=>{
       if(!e.candidate) return;
       const c=e.candidate.candidate||''; if(!/ typ host\\b/.test(c)) return;
@@ -330,37 +372,38 @@ async function detectLAN(){
       }
     };
     const sdp=await pc.createOffer({offerToReceiveAudio:false,offerToReceiveVideo:false}); await pc.setLocalDescription(sdp);
-  }catch(e){ setText('lan', tkey('lanFail')); }
+  }catch(e){ setText('lan', t('lanFail')); }
 }
 
-// Wire
-bootLang();
-$('#lang').addEventListener('change', e=>applyLang(e.target.value));
-$('#btnBoth').addEventListener('click', showBoth);
-$('#btnCopy4').addEventListener('click', ()=>copyText('#copied4', $('#ip4').textContent, false));
-$('#btnCopy6').addEventListener('click', ()=>copyText('#copied6', $('#ip6').textContent, true));
-$('#btnLan').addEventListener('click', detectLAN);
-// auto run
-showBoth();
-
-// Home link fix (preserve ?lang; support multi-level dirs)
-(function(){
-  var path = location.pathname.replace(/\/+$/,'');
-  var parts = path.split('/');
-  if (parts.length >= 3) parts = parts.slice(0, parts.length - 2);
-  else parts = [''];
-  var home = parts.join('/') + '/';
-  var cur = new URL(location.href);
-  var lang = cur.searchParams.get('lang') || localStorage.getItem('lang');
-  if (lang) {
-    var u = new URL(home, location.origin);
-    u.searchParams.set('lang', lang);
-    home = u.pathname + u.search + u.hash;
-  }
-  document.querySelectorAll('a[data-home]').forEach(function(a){
-    a.setAttribute('href', home);
-  });
-})();
+/* 语言 & 事件绑定 */
+function onReady(){
+  bootLang();
+  $('#lang').addEventListener('change', e=>applyLang(e.target.value));
+  $('#btnBoth').addEventListener('click', showBoth);
+  $('#btnCopy4').addEventListener('click', ()=>copyText('#copied4', $('#ip4').textContent, false));
+  $('#btnCopy6').addEventListener('click', ()=>copyText('#copied6', $('#ip6').textContent, true));
+  $('#btnLan').addEventListener('click', detectLAN);
+  showBoth(); // 自动运行一次
+  // 保留你的 home 链接逻辑（带 lang）
+  (function(){
+    var path = location.pathname.replace(/\/+$/,'');
+    var parts = path.split('/');
+    if (parts.length >= 3) parts = parts.slice(0, parts.length - 2);
+    else parts = [''];
+    var home = parts.join('/') + '/';
+    var cur = new URL(location.href);
+    var lang = cur.searchParams.get('lang') || localStorage.getItem('lang');
+    if (lang) {
+      var u = new URL(home, location.origin);
+      u.searchParams.set('lang', lang);
+      home = u.pathname + u.search + u.hash;
+    }
+    document.querySelectorAll('a[data-home]').forEach(function(a){
+      a.setAttribute('href', home);
+    });
+  })();
+}
+document.addEventListener('DOMContentLoaded', onReady);
 </script>
 </body>
 </html>
