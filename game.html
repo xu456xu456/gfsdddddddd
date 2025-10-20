@@ -5,16 +5,43 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <title>Flappy Mini · buildyourside</title>
 <style>
-  html,body{margin:0;height:100%;background:#0d1117;color:#e6edf3;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial;
-    touch-action:none; overscroll-behavior:none; -webkit-user-select:none; user-select:none;}
+  html,body{
+    margin:0;height:100%;background:#0d1117;color:#e6edf3;
+    font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial;
+    touch-action:none; overscroll-behavior:none; -webkit-user-select:none; user-select:none;
+  }
   .wrap{display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px}
   #c{background:#121826;border:2px solid #222a3a;border-radius:12px;touch-action:none;}
   .hud{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center;position:relative;z-index:3}
   .btn{cursor:pointer;border:1px solid #2a3245;border-radius:10px;padding:6px 10px;background:#141a26}
   .btn:active{transform:translateY(1px)}
   .score{font-weight:700}
-  a{color:#8ab4f8;text-decoration:none}
 </style>
+
+<!-- 硬拦截：任何网页层面的双击全屏与 dblclick 行为（不影响 F11 这种浏览器级全屏） -->
+<script>
+(function hardBlockDblClickFS(){
+  const stop = (e)=>{ e.preventDefault(); e.stopImmediatePropagation(); };
+  // 阻止双击事件在捕获阶段就被处理（覆盖第三方脚本）
+  window.addEventListener('dblclick', stop, {capture:true});
+  document.addEventListener('dblclick', stop, {capture:true});
+  // 若仍被拉进 Fullscreen API（来自扩展/其他脚本），立刻退出
+  document.addEventListener('fullscreenchange', ()=>{
+    if (document.fullscreenElement) document.exitFullscreen?.();
+  });
+  // iOS pinch 手势
+  ['gesturestart','gesturechange','gestureend'].forEach(ev=>{
+    document.addEventListener(ev, e=>e.preventDefault(), {passive:false});
+  });
+  // 双击放大：两次 touchend 间隔 < 300ms 时拦截
+  let lastTouchEnd = 0;
+  document.addEventListener('touchend', function(e){
+    const now = Date.now();
+    if (now - lastTouchEnd <= 300) e.preventDefault();
+    lastTouchEnd = now;
+  }, {passive:false, capture:true});
+})();
+</script>
 </head>
 <body>
 <div class="wrap">
@@ -39,18 +66,6 @@
   const $restart = document.getElementById('restart');
   const BEST_KEY = 'flappy_best_v1';
 
-  // ==== 移动端：彻底禁止双击/手势放大 ====
-  ['gesturestart','gesturechange','gestureend'].forEach(ev=>{
-    document.addEventListener(ev, e=>e.preventDefault(), {passive:false});
-  });
-  let lastTouchEnd = 0;
-  document.addEventListener('touchend', function(e){
-    const now = Date.now();
-    if (now - lastTouchEnd <= 300) e.preventDefault();
-    lastTouchEnd = now;
-  }, {passive:false, capture:true});
-  document.addEventListener('dblclick', e=>e.preventDefault(), {passive:false, capture:true});
-
   // 响应式：小屏自动缩放到窗口宽度
   function fitCanvas(){
     const maxW = Math.min(480, window.innerWidth - 20);
@@ -70,7 +85,7 @@
   const PIPE_GAP_MIN = 150, PIPE_GAP_MAX = 190; // 常规难度范围
   const GAP_START_MIN = 260, GAP_START_MAX = 300; // 开局更宽
   const EASY_COUNT = 2;     // 前 2 根特别宽
-  const RAMP_COUNT = 10;    // 接下来 10 根内线性收窄
+  const RAMP_COUNT = 10;    // 接下来 10 根内线性收敛
   const PIPE_W = 70;
   const PIPE_SPEED = 160;      // px/s
   const PIPE_INTERVAL = 1450;  // ms
@@ -263,6 +278,7 @@
     ctx.strokeStyle = '#2a364a';
     ctx.lineWidth = 3;
     ctx.strokeRect(x+0.5,y+0.5,w-1,h-1);
+    // 边缘高光
     ctx.globalAlpha = 0.12;
     ctx.fillStyle = '#9fb5ff';
     ctx.fillRect(x+4,y+4,w-8,6);
@@ -276,11 +292,13 @@
     ctx.fill();
     ctx.strokeStyle = '#e0a800';
     ctx.stroke();
+    // 翅膀
     const flap = Math.sin(perf())*4;
     ctx.beginPath();
     ctx.ellipse(x-6, y+flap, 10,6, 0, 0, Math.PI*2);
     ctx.fillStyle = '#f9c74f';
     ctx.fill();
+    // 眼睛
     ctx.beginPath();
     ctx.arc(x+6, y-6, 4, 0, Math.PI*2);
     ctx.fillStyle = '#fff';
@@ -289,6 +307,7 @@
     ctx.arc(x+6, y-6, 2, 0, Math.PI*2);
     ctx.fillStyle = '#000';
     ctx.fill();
+    // 嘴
     ctx.beginPath();
     ctx.moveTo(x+14, y-2);
     ctx.lineTo(x+22, y+1);
@@ -312,7 +331,7 @@
     ctx.fillText(text, (W - ctx.measureText(text).width)/2, y);
   }
   function toast(text){
-    const alpha = Math.max(0, Math.min(1, mTTL / 2200));
+    const alpha = Math.max(0, Math.min(1, mTTL / 2200)); // 渐隐
     ctx.font = 'bold 22px system-ui,Arial';
     const tw = ctx.measureText(text).width + 24;
     const x = (W - tw)/2, y = 60;
@@ -362,7 +381,9 @@
 
   // 事件
   cvs.addEventListener('pointerdown', jump, {passive:true});
+  // 兜底：部分老机型无 PointerEvents
   cvs.addEventListener('touchstart', (e)=>{ e.preventDefault(); jump(); }, {passive:false});
+
   window.addEventListener('keydown', (e)=>{
     if (e.code === 'Space') { e.preventDefault(); jump(); }
     if (e.key.toLowerCase() === 'p') togglePause();
